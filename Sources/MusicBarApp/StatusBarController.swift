@@ -311,8 +311,8 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         window.isMovableByWindowBackground = true
         window.backgroundColor = .clear
         window.isOpaque = false
-        window.alphaValue = max(0.18, settings.lyricsWindowOpacity)
-        window.level = settings.lyricsWindowAlwaysOnTop ? .floating : .normal
+        window.alphaValue = 1
+        window.level = .normal
         window.contentViewController = NSHostingController(
             rootView: LyricsWindowView(
                 service: lyricsService,
@@ -326,19 +326,23 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         lyricsWindow = window
 
-        settings.$lyricsWindowOpacity
-            .receive(on: RunLoop.main)
-            .sink { [weak window] opacity in
-                window?.alphaValue = max(0.18, opacity)
-            }
-            .store(in: &cancellables)
+        if AppEdition.supportsLyricsWindowOpacity {
+            settings.$lyricsWindowOpacity
+                .receive(on: RunLoop.main)
+                .sink { [weak window] opacity in
+                    window?.alphaValue = max(0.18, opacity)
+                }
+                .store(in: &cancellables)
+        }
 
-        settings.$lyricsWindowAlwaysOnTop
-            .receive(on: RunLoop.main)
-            .sink { [weak window] alwaysOnTop in
-                window?.level = alwaysOnTop ? .floating : .normal
-            }
-            .store(in: &cancellables)
+        if AppEdition.supportsLyricsWindowPinning {
+            settings.$lyricsWindowAlwaysOnTop
+                .receive(on: RunLoop.main)
+                .sink { [weak window] alwaysOnTop in
+                    window?.level = alwaysOnTop ? .floating : .normal
+                }
+                .store(in: &cancellables)
+        }
 
         window.makeKeyAndOrderFront(nil)
         isAutoLyricsWindowVisible = !activate
@@ -353,7 +357,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     private func syncAutoLyricsWindow(for track: TrackInfo?) {
-        guard settings.autoShowLyricsWindow else {
+        guard AppEdition.supportsAutoLyricsWindow, settings.autoShowLyricsWindow else {
             return
         }
 
@@ -389,7 +393,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 218),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: settingsWindowHeight),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -411,6 +415,10 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private func openGitHub() {
         closeMainPopover()
         NSWorkspace.shared.open(settings.githubURL)
+    }
+
+    private var settingsWindowHeight: CGFloat {
+        AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin ? 218 : 162
     }
 }
 

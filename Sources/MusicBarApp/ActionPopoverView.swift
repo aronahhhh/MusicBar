@@ -54,21 +54,33 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Settings")
-                .font(.system(size: 18, weight: .semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Settings")
+                    .font(.system(size: 18, weight: .semibold))
+                Text(AppEdition.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("GitHub Homepage")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-                TextField("https://github.com/your-name", text: $settings.githubURLString)
+                TextField(AppEdition.githubURLString, text: $settings.githubURLString)
                     .textFieldStyle(.roundedBorder)
             }
 
-            Divider()
+            if AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin {
+                Divider()
+            }
 
-            Toggle("Auto Lyrics Window", isOn: $settings.autoShowLyricsWindow)
-            Toggle("Launch at Login", isOn: $settings.launchAtLogin)
+            if AppEdition.supportsAutoLyricsWindow {
+                Toggle("Auto Lyrics Window", isOn: $settings.autoShowLyricsWindow)
+            }
+
+            if AppEdition.supportsLaunchAtLogin {
+                Toggle("Launch at Login", isOn: $settings.launchAtLogin)
+            }
 
             HStack {
                 Spacer()

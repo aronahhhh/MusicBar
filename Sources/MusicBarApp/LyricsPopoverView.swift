@@ -111,7 +111,9 @@ private struct LyricsDisplayView: View {
 
             Spacer(minLength: 0)
 
-            if showsControls, let settings {
+            if showsControls,
+               let settings,
+               AppEdition.supportsLyricsWindowPinning || AppEdition.supportsLyricsWindowOpacity {
                 lyricsWindowControls(settings: settings, onOpacityChanged: onOpacityChanged)
             }
         }
@@ -159,39 +161,43 @@ private struct LyricsDisplayView: View {
 
     private func lyricsWindowControls(settings: AppSettings, onOpacityChanged: @escaping (Double) -> Void) -> some View {
         HStack(spacing: 8) {
-            Button {
-                settings.lyricsWindowAlwaysOnTop.toggle()
-            } label: {
-                Image(systemName: settings.lyricsWindowAlwaysOnTop ? "pin.fill" : "pin")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .foregroundStyle(settings.lyricsWindowAlwaysOnTop ? .white : .white.opacity(0.65))
-                    .background(.black.opacity(0.62), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+            if AppEdition.supportsLyricsWindowPinning {
+                Button {
+                    settings.lyricsWindowAlwaysOnTop.toggle()
+                } label: {
+                    Image(systemName: settings.lyricsWindowAlwaysOnTop ? "pin.fill" : "pin")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(settings.lyricsWindowAlwaysOnTop ? .white : .white.opacity(0.65))
+                        .background(.black.opacity(0.62), in: Circle())
+                        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .help("Keep the lyrics window above other windows")
             }
-            .buttonStyle(.plain)
-            .help("Keep the lyrics window above other windows")
 
-            Button {
-                showsOpacityPanel.toggle()
-                scheduleOpacityPanelClose()
-            } label: {
-                Image(systemName: "circle.lefthalf.filled")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .foregroundStyle(.white.opacity(0.78))
-                    .background(.black.opacity(0.62), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+            if AppEdition.supportsLyricsWindowOpacity {
+                Button {
+                    showsOpacityPanel.toggle()
+                    scheduleOpacityPanelClose()
+                } label: {
+                    Image(systemName: "circle.lefthalf.filled")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .background(.black.opacity(0.62), in: Circle())
+                        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showsOpacityPanel, arrowEdge: .bottom) {
+                    OpacityPanel(
+                        settings: settings,
+                        onOpacityChanged: onOpacityChanged,
+                        onInteraction: scheduleOpacityPanelClose
+                    )
+                }
+                .help("Adjust lyrics window opacity")
             }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showsOpacityPanel, arrowEdge: .bottom) {
-                OpacityPanel(
-                    settings: settings,
-                    onOpacityChanged: onOpacityChanged,
-                    onInteraction: scheduleOpacityPanelClose
-                )
-            }
-            .help("Adjust lyrics window opacity")
         }
     }
 
@@ -479,14 +485,16 @@ private struct AppleMusicLyricsLinesView: View {
                                 .scaleEffect(line.id == currentIndex ? 1 : 0.96)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    guard isSynced, let time = line.time else {
+                                    guard AppEdition.supportsLyricLineSeeking,
+                                          isSynced,
+                                          let time = line.time else {
                                         return
                                     }
 
                                     onInteraction()
                                     nowPlayingService.seek(to: time)
                                 }
-                                .help(line.time == nil ? "" : "Jump to this lyric")
+                                .help(AppEdition.supportsLyricLineSeeking && line.time != nil ? "Jump to this lyric" : "")
                                 .animation(.easeInOut(duration: 0.18), value: currentIndex)
                                 .id(line.id)
                         }

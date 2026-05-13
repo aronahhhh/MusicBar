@@ -35,7 +35,7 @@ final class AppSettings: ObservableObject {
     private let launchAtLoginKey = "launchAtLogin"
 
     init() {
-        githubURLString = UserDefaults.standard.string(forKey: githubURLKey) ?? "https://github.com/"
+        githubURLString = UserDefaults.standard.string(forKey: githubURLKey) ?? AppEdition.githubURLString
         let savedOpacity = UserDefaults.standard.double(forKey: lyricsWindowOpacityKey)
         lyricsWindowOpacity = savedOpacity == 0 ? 0.88 : max(0.18, savedOpacity)
         lyricsWindowAlwaysOnTop = UserDefaults.standard.bool(forKey: lyricsWindowAlwaysOnTopKey)

@@ -2,7 +2,7 @@
 
 Lightweight now-playing and synced lyrics for the macOS menu bar.
 
-MusicBar is a free macOS menu bar app for people who want quick access to the current song, cover art, playback controls, and a clean lyrics window without keeping Apple Music in the foreground.
+MusicBar Preview is a free macOS menu bar app for people who want quick access to the current song, cover art, playback controls, and a clean lyrics window without keeping Apple Music in the foreground.
 
 > Early preview: the app is usable, but player support and lyrics matching will keep improving through GitHub issues and releases.
 
@@ -16,9 +16,7 @@ MusicBar is a free macOS menu bar app for people who want quick access to the cu
 - Compact click menu with Lyrics, Settings, Update, GitHub, and Quit actions.
 - Hover playback controls from the menu bar.
 - Resizable Apple Music style lyrics window with synced lyric highlighting.
-- Playback controls for progress, play/pause, previous, next, shuffle, repeat, and lyric-line seeking.
-- Optional auto lyrics window that appears while music is playing and hides when playback pauses.
-- Optional launch-at-login support via a user LaunchAgent.
+- Playback controls for progress, play/pause, previous, next, shuffle, and repeat.
 - Apple Music support.
 - Lyrics matching through LRCLIB with NetEase fallback for more Chinese tracks.
 - Responsive polling for low-latency menu bar and lyric updates.
@@ -95,7 +93,8 @@ The Update action opens the releases page for the configured GitHub repository U
 ## Known limitations
 
 - Lyrics availability depends on third-party matching sources.
-- The free version currently focuses on Apple Music.
+- The preview version currently focuses on Apple Music.
+- Auto lyrics window, lyrics window pinning, opacity controls, launch at login, lyric-line seeking, and more player integrations are not included in this GitHub preview build.
 - Preview builds are ad-hoc signed, not notarized.
 
 ## Roadmap
@@ -105,6 +104,7 @@ The Update action opens the releases page for the configured GitHub repository U
 - Automatic update support.
 - Optional local `.lrc` lyric import.
 - More menu bar display styles.
+- Pro feature split with a separate distribution channel.
 
 
 ## License

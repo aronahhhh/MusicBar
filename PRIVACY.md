@@ -28,6 +28,4 @@ MusicBar does not include analytics, tracking SDKs, accounts, or telemetry.
 
 ## Settings
 
-MusicBar stores preferences locally with `UserDefaults`, including GitHub homepage, lyrics window opacity, always-on-top state, auto lyrics window state, and launch-at-login state.
-
-Launch at Login is implemented with a user LaunchAgent in `~/Library/LaunchAgents`.
+The public GitHub Preview build stores the GitHub homepage setting locally with `UserDefaults`. More advanced settings are reserved for future builds.
