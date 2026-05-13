@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.2
+
+### Changed
+
+- Physically removed Pro lyrics-window controls from the GitHub Preview build.
+- Preview builds now contain only the basic lyrics window and playback controls.
+
 ### Changed
 
 - Added a preview edition feature gate for the public GitHub build.

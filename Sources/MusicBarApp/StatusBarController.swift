@@ -316,33 +316,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: LyricsWindowView(
                 service: lyricsService,
-                nowPlayingService: nowPlayingService,
-                settings: settings,
-                onOpacityChanged: { [weak window] opacity in
-                    window?.alphaValue = max(0.18, opacity)
-                }
+                nowPlayingService: nowPlayingService
             )
         )
         window.isReleasedWhenClosed = false
         lyricsWindow = window
-
-        if AppEdition.supportsLyricsWindowOpacity {
-            settings.$lyricsWindowOpacity
-                .receive(on: RunLoop.main)
-                .sink { [weak window] opacity in
-                    window?.alphaValue = max(0.18, opacity)
-                }
-                .store(in: &cancellables)
-        }
-
-        if AppEdition.supportsLyricsWindowPinning {
-            settings.$lyricsWindowAlwaysOnTop
-                .receive(on: RunLoop.main)
-                .sink { [weak window] alwaysOnTop in
-                    window?.level = alwaysOnTop ? .floating : .normal
-                }
-                .store(in: &cancellables)
-        }
 
         window.makeKeyAndOrderFront(nil)
         isAutoLyricsWindowVisible = !activate
@@ -417,9 +395,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         NSWorkspace.shared.open(settings.githubURL)
     }
 
-    private var settingsWindowHeight: CGFloat {
-        AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin ? 218 : 162
-    }
+    private let settingsWindowHeight: CGFloat = 162
 }
 
 private final class PassthroughHostingView<Content: View>: NSHostingView<Content> {

@@ -3,16 +3,12 @@ import SwiftUI
 struct LyricsWindowView: View {
     @ObservedObject var service: LyricsService
     @ObservedObject var nowPlayingService: NowPlayingService
-    @ObservedObject var settings: AppSettings
-    let onOpacityChanged: (Double) -> Void
 
     var body: some View {
         LyricsDisplayView(
             service: service,
             nowPlayingService: nowPlayingService,
-            showsControls: true,
-            settings: settings,
-            onOpacityChanged: onOpacityChanged
+            showsControls: true
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -22,10 +18,6 @@ private struct LyricsDisplayView: View {
     @ObservedObject var service: LyricsService
     @ObservedObject var nowPlayingService: NowPlayingService
     let showsControls: Bool
-    let settings: AppSettings?
-    var onOpacityChanged: (Double) -> Void = { _ in }
-    @State private var showsOpacityPanel = false
-    @State private var opacityPanelCloseToken = UUID()
     @State private var showsPlaybackControls = true
     @State private var playbackControlsHideToken = UUID()
 
@@ -110,12 +102,6 @@ private struct LyricsDisplayView: View {
             }
 
             Spacer(minLength: 0)
-
-            if showsControls,
-               let settings,
-               AppEdition.supportsLyricsWindowPinning || AppEdition.supportsLyricsWindowOpacity {
-                lyricsWindowControls(settings: settings, onOpacityChanged: onOpacityChanged)
-            }
         }
     }
 
@@ -155,63 +141,6 @@ private struct LyricsDisplayView: View {
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-    }
-
-    private func lyricsWindowControls(settings: AppSettings, onOpacityChanged: @escaping (Double) -> Void) -> some View {
-        HStack(spacing: 8) {
-            if AppEdition.supportsLyricsWindowPinning {
-                Button {
-                    settings.lyricsWindowAlwaysOnTop.toggle()
-                } label: {
-                    Image(systemName: settings.lyricsWindowAlwaysOnTop ? "pin.fill" : "pin")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .foregroundStyle(settings.lyricsWindowAlwaysOnTop ? .white : .white.opacity(0.65))
-                        .background(.black.opacity(0.62), in: Circle())
-                        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .help("Keep the lyrics window above other windows")
-            }
-
-            if AppEdition.supportsLyricsWindowOpacity {
-                Button {
-                    showsOpacityPanel.toggle()
-                    scheduleOpacityPanelClose()
-                } label: {
-                    Image(systemName: "circle.lefthalf.filled")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 28, height: 28)
-                        .foregroundStyle(.white.opacity(0.78))
-                        .background(.black.opacity(0.62), in: Circle())
-                        .overlay(Circle().stroke(.white.opacity(0.24), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showsOpacityPanel, arrowEdge: .bottom) {
-                    OpacityPanel(
-                        settings: settings,
-                        onOpacityChanged: onOpacityChanged,
-                        onInteraction: scheduleOpacityPanelClose
-                    )
-                }
-                .help("Adjust lyrics window opacity")
-            }
-        }
-    }
-
-    private func scheduleOpacityPanelClose() {
-        let token = UUID()
-        opacityPanelCloseToken = token
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-            guard opacityPanelCloseToken == token else {
-                return
-            }
-
-            withAnimation(.easeInOut(duration: 0.16)) {
-                showsOpacityPanel = false
             }
         }
     }
@@ -423,41 +352,6 @@ private struct ScrubProgressBar: View {
     }
 }
 
-private struct OpacityPanel: View {
-    @ObservedObject var settings: AppSettings
-    let onOpacityChanged: (Double) -> Void
-    let onInteraction: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Opacity")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                Spacer()
-                Text("\(Int(settings.lyricsWindowOpacity * 100))%")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-
-            Slider(
-                value: Binding(
-                    get: { settings.lyricsWindowOpacity },
-                    set: { value in
-                        let nextOpacity = max(0.18, value)
-                        settings.lyricsWindowOpacity = nextOpacity
-                        onOpacityChanged(nextOpacity)
-                        onInteraction()
-                    }
-                ),
-                in: 0.18...1.0
-            )
-        }
-        .padding(12)
-        .frame(width: 190)
-        .onAppear(perform: onInteraction)
-    }
-}
-
 private struct AppleMusicLyricsLinesView: View {
     let lines: [LyricLine]
     let isSynced: Bool
@@ -484,17 +378,6 @@ private struct AppleMusicLyricsLinesView: View {
                                 .frame(maxWidth: .infinity, alignment: .center)
                                 .scaleEffect(line.id == currentIndex ? 1 : 0.96)
                                 .contentShape(Rectangle())
-                                .onTapGesture {
-                                    guard AppEdition.supportsLyricLineSeeking,
-                                          isSynced,
-                                          let time = line.time else {
-                                        return
-                                    }
-
-                                    onInteraction()
-                                    nowPlayingService.seek(to: time)
-                                }
-                                .help(AppEdition.supportsLyricLineSeeking && line.time != nil ? "Jump to this lyric" : "")
                                 .animation(.easeInOut(duration: 0.18), value: currentIndex)
                                 .id(line.id)
                         }
