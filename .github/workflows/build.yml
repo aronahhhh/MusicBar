@@ -1,0 +1,19 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app bundle
+        run: scripts/build_app.sh
+      - name: Verify code signature
+        run: codesign --verify --verbose dist/MusicBar.app
+      - name: Verify Info.plist
+        run: plutil -lint dist/MusicBar.app/Contents/Info.plist
