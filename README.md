@@ -6,6 +6,8 @@ MusicBar is a free macOS menu bar app for people who want quick access to the cu
 
 > Early preview: the app is usable, but player support and lyrics matching will keep improving through GitHub issues and releases.
 
+[![Download MusicBar](https://img.shields.io/badge/Download-MusicBar-2ea44f?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/aronahhhh/MusicBar/releases/latest)
+
 ![MusicBar preview](docs/assets/musicbar-preview.png)
 
 ## Features
