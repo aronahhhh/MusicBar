@@ -86,7 +86,6 @@ Before publishing:
 - Replace the preview image with real screenshots or a short demo GIF when available.
 - Update the GitHub Homepage field from the menu bar Settings action.
 - Create a GitHub Release with the built `MusicBar.app` zipped.
-- Use the issue templates in `.github/ISSUE_TEMPLATE`.
 - Keep release notes clear: added, fixed, known limitations.
 
 The Update action opens the releases page for the configured GitHub repository URL.
@@ -105,12 +104,6 @@ The Update action opens the releases page for the configured GitHub repository U
 - Optional local `.lrc` lyric import.
 - More menu bar display styles.
 
-## Issues 
-- [x] 歌名和作者在菜单栏上显示框中居中
-- [x] 切歌动画滑动方向换一个方向
-- [x] 在歌词窗口滑动时不显示操作ui,希望达到的逻辑是如果鼠标在窗口滑动显示操作ui,静止一段时间后自动隐藏.
-- [x] 悬停ui和歌词窗口操作ui中的随机播放和循环播放按钮没有按下反馈（不知道当前状态）
-- [x] 歌词窗口可以暂停自动隐藏吗？
 
 ## License
 
