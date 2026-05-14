@@ -227,9 +227,11 @@ struct SettingsView: View {
 
             Divider()
 
-            Text(license.regionPricingText)
+            Text(text.regionPricingText(license))
                 .font(.system(size: 16, weight: .medium))
                 .multilineTextAlignment(.center)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 16)
                 .frame(maxWidth: .infinity)
@@ -243,7 +245,7 @@ struct SettingsView: View {
     }
 }
 
-private enum SettingsTab: String, CaseIterable {
+enum SettingsTab: String, CaseIterable {
     case general
     case lyrics
     case about
@@ -371,7 +373,7 @@ private struct AboutButton: View {
     }
 }
 
-private struct SettingsText {
+struct SettingsText {
     let languageCode: String
 
     var language: String { value("Language", "语言", "語言") }
@@ -394,6 +396,31 @@ private struct SettingsText {
     var github: String { value("View on GitHub", "上 GitHub 查看", "到 GitHub 查看") }
     var update: String { value("Check for Updates", "检查更新", "檢查更新") }
     var website: String { value("Visit Website", "访问网站", "造訪網站") }
+    var trialTitle: String { value("MusicBar Trial", "MusicBar 试用", "MusicBar 試用") }
+    var trialExpired: String { value("Trial Expired", "试用已结束", "試用已結束") }
+    var trialDescription: String {
+        value(
+            "MusicBar includes the full lyrics window, menu bar controls, auto lyrics window, opacity control, always-on-top mode, and launch at login during the 7-day trial.",
+            "7 天试用期间，MusicBar 会开放完整歌词窗口、菜单栏控制、自动歌词窗口、透明度控制、置顶显示和开机启动。",
+            "7 天試用期間，MusicBar 會開放完整歌詞視窗、選單列控制、自動歌詞視窗、透明度控制、置頂顯示和開機啟動。"
+        )
+    }
+
+    func unlockText(_ price: String) -> String {
+        value(
+            "After the trial, unlock the full version for \(price).",
+            "试用结束后，可以用 \(price) 解锁完整版本。",
+            "試用結束後，可以用 \(price) 解鎖完整版本。"
+        )
+    }
+
+    func regionPricingText(_ license: AppLicense) -> String {
+        value(
+            "MusicBar detected your country or region as \(license.detectedRegionName). The full version price is \(license.localizedPrice).",
+            "MusicBar 检测到您所在的国家或地区为\(license.detectedRegionName)，完整版本价格为 \(license.localizedPrice)。",
+            "MusicBar 偵測到您所在的國家或地區為\(license.detectedRegionName)，完整版本價格為 \(license.localizedPrice)。"
+        )
+    }
 
     func tabTitle(_ tab: SettingsTab) -> String {
         switch tab {
@@ -430,39 +457,52 @@ private struct SettingsText {
 
 struct PurchaseView: View {
     @ObservedObject var license: AppLicense
+    let text: SettingsText
     let onPurchase: () -> Void
     let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(license.isTrialActive ? "MusicBar Trial" : "Trial Expired")
+                Text(license.isTrialActive ? text.trialTitle : text.trialExpired)
                     .font(.system(size: 20, weight: .semibold))
                 Text(license.statusText)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(license.isEntitled ? Color.secondary : Color.red)
             }
 
-            Text("MusicBar includes the full lyrics window, menu bar controls, auto lyrics window, opacity control, always-on-top mode, and launch at login during the 7-day trial.")
+            Text(text.trialDescription)
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("After the trial, unlock the full version for \(license.localizedPrice).")
+            Text(text.unlockText(license.localizedPrice))
                 .font(.system(size: 13, weight: .semibold))
 
-            Text(license.regionPricingText)
+            Text(text.regionPricingText(license))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack {
-                Button("Not Now", action: onClose)
+                Button(value("Not Now", "暂不", "暫不"), action: onClose)
                 Spacer()
-                Button("Purchase", action: onPurchase)
+                Button(text.purchase, action: onPurchase)
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
         .frame(width: 380)
+    }
+
+    private func value(_ english: String, _ simplified: String, _ traditional: String) -> String {
+        if text.languageCode == "zh-Hans" {
+            return simplified
+        }
+        if text.languageCode == "zh-Hant" {
+            return traditional
+        }
+        return english
     }
 }

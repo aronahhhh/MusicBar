@@ -498,6 +498,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: PurchaseView(
                 license: license,
+                text: SettingsText(languageCode: settings.appLanguage.resolvedCode),
                 onPurchase: { [weak self] in self?.openPurchasePage() },
                 onClose: { [weak window] in window?.close() }
             )
