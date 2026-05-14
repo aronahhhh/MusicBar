@@ -133,6 +133,12 @@ struct SettingsView: View {
             )
 
             PreferenceToggleRow(
+                title: text.hoverControls,
+                subtitle: text.hoverControlsHint,
+                isOn: $settings.showHoverPlaybackControls
+            )
+
+            PreferenceToggleRow(
                 title: text.launchAtLogin,
                 subtitle: text.launchAtLoginHint,
                 isOn: $settings.launchAtLogin
@@ -380,6 +386,8 @@ struct SettingsText {
     var languageHint: String { value("Use the system language by default.", "默认跟随系统语言。", "預設跟隨系統語言。") }
     var showInMenuBar: String { value("Show in Menu Bar", "在菜单栏中显示", "在選單列中顯示") }
     var showInMenuBarHint: String { value("Show cover art, title, and artist in the menu bar.", "在菜单栏显示封面、歌名和歌手。", "在選單列顯示封面、歌名與歌手。") }
+    var hoverControls: String { value("Hover Playback Controls", "悬停显示播放控制", "懸停顯示播放控制") }
+    var hoverControlsHint: String { value("Show compact playback controls when hovering over the menu bar item.", "鼠标悬停在菜单栏项目上时显示小型播放控制。", "滑鼠懸停在選單列項目上時顯示小型播放控制。") }
     var launchAtLogin: String { value("Launch at Login", "开机启动", "開機啟動") }
     var launchAtLoginHint: String { value("Open MusicBar automatically when you log in.", "登录 macOS 后自动打开 MusicBar。", "登入 macOS 後自動開啟 MusicBar。") }
     var license: String { value("License", "授权", "授權") }

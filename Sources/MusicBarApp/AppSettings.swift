@@ -61,6 +61,11 @@ final class AppSettings: ObservableObject {
             UserDefaults.standard.set(showNowPlayingInMenuBar, forKey: showNowPlayingInMenuBarKey)
         }
     }
+    @Published var showHoverPlaybackControls: Bool {
+        didSet {
+            UserDefaults.standard.set(showHoverPlaybackControls, forKey: showHoverPlaybackControlsKey)
+        }
+    }
     @Published var githubURLString: String {
         didSet {
             UserDefaults.standard.set(githubURLString, forKey: githubURLKey)
@@ -105,6 +110,7 @@ final class AppSettings: ObservableObject {
 
     private let appLanguageKey = "appLanguage"
     private let showNowPlayingInMenuBarKey = "showNowPlayingInMenuBar"
+    private let showHoverPlaybackControlsKey = "showHoverPlaybackControls"
     private let githubURLKey = "githubURLString"
     private let lyricsWindowOpacityKey = "lyricsWindowOpacity"
     private let lyricsWindowAlwaysOnTopKey = "lyricsWindowAlwaysOnTop"
@@ -121,6 +127,11 @@ final class AppSettings: ObservableObject {
             showNowPlayingInMenuBar = true
         } else {
             showNowPlayingInMenuBar = UserDefaults.standard.bool(forKey: showNowPlayingInMenuBarKey)
+        }
+        if UserDefaults.standard.object(forKey: showHoverPlaybackControlsKey) == nil {
+            showHoverPlaybackControls = true
+        } else {
+            showHoverPlaybackControls = UserDefaults.standard.bool(forKey: showHoverPlaybackControlsKey)
         }
         githubURLString = UserDefaults.standard.string(forKey: githubURLKey) ?? AppEdition.githubURLString
         let savedOpacity = UserDefaults.standard.double(forKey: lyricsWindowOpacityKey)

@@ -197,6 +197,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         guard let button = statusItem.button,
               nowPlayingService.track != nil,
               license.isEntitled,
+              settings.showHoverPlaybackControls,
               !popover.isShown,
               lyricsWindow?.isKeyWindow != true else {
             return
@@ -261,6 +262,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         }
 
         guard license.isEntitled else {
+            closeControlPopoverImmediately()
+            return
+        }
+
+        guard settings.showHoverPlaybackControls else {
             closeControlPopoverImmediately()
             return
         }
