@@ -2,33 +2,12 @@ import AppKit
 import SwiftUI
 
 struct ActionPopoverView: View {
-    @ObservedObject var license: AppLicense
-    let onLyrics: () -> Void
     let onSettings: () -> Void
-    let onUpdate: () -> Void
-    let onGitHub: () -> Void
-    let onPurchase: () -> Void
     let onQuit: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(AppEdition.name)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(license.statusText)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(license.isEntitled ? Color.secondary : Color.red)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
-            ActionButton(title: "Lyrics", systemImage: "quote.bubble", action: onLyrics)
             ActionButton(title: "Settings", systemImage: "gearshape", action: onSettings)
-            ActionButton(title: "Update", systemImage: "arrow.down.circle", action: onUpdate)
-            ActionButton(title: "GitHub", systemImage: "link", action: onGitHub)
-            ActionButton(title: "Purchase", systemImage: "cart", action: onPurchase)
 
             Divider()
                 .padding(.vertical, 2)
@@ -36,7 +15,7 @@ struct ActionPopoverView: View {
             ActionButton(title: "Quit", systemImage: "power", action: onQuit)
         }
         .padding(10)
-        .frame(width: 190)
+        .frame(width: 156)
     }
 }
 

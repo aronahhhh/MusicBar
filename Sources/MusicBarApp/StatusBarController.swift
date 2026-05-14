@@ -70,15 +70,10 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private func configurePopover() {
         popover.behavior = .applicationDefined
         popover.animates = true
-        popover.contentSize = NSSize(width: 190, height: 270)
+        popover.contentSize = NSSize(width: 156, height: 92)
         popover.contentViewController = NSHostingController(
             rootView: ActionPopoverView(
-                license: license,
-                onLyrics: { [weak self] in self?.showLyricsWindow() },
                 onSettings: { [weak self] in self?.showSettings() },
-                onUpdate: { [weak self] in self?.openUpdatePage() },
-                onGitHub: { [weak self] in self?.openGitHub() },
-                onPurchase: { [weak self] in self?.showPurchaseWindow() },
                 onQuit: { NSApp.terminate(nil) }
             )
         )
@@ -134,12 +129,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
 
     @objc private func togglePopover() {
         guard let button = statusItem.button else {
-            return
-        }
-
-        if NSApp.currentEvent?.type == .leftMouseUp {
-            closeControlPopoverImmediately()
-            showSettings()
             return
         }
 
