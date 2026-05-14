@@ -70,6 +70,20 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
             }
 
+            #if !PREVIEW
+            if AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin {
+                Divider()
+            }
+
+            if AppEdition.supportsAutoLyricsWindow {
+                Toggle("Auto Lyrics Window", isOn: $settings.autoShowLyricsWindow)
+            }
+
+            if AppEdition.supportsLaunchAtLogin {
+                Toggle("Launch at Login", isOn: $settings.launchAtLogin)
+            }
+            #endif
+
             HStack {
                 Spacer()
                 Button("Done") {

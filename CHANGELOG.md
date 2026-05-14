@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.3
+
+### Changed
+
+- Restored the full local development build with lyrics window controls, auto lyrics window, opacity, pinning, launch at login, and lyric-line seeking.
+- Added `MUSICBAR_EDITION=preview` build support so GitHub Preview packages can be generated without removing full-version code from local development.
+
 ## 0.1.2
 
 ### Changed

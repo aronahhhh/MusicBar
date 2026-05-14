@@ -33,6 +33,12 @@ scripts/build_app.sh
 open dist/MusicBar.app
 ```
 
+The default local build is the full development build. To create the public GitHub Preview package:
+
+```bash
+MUSICBAR_EDITION=preview scripts/build_app.sh
+```
+
 ## Requirements
 
 - macOS 13 Ventura or later.
@@ -65,6 +71,12 @@ The bundle is created at:
 
 ```text
 dist/MusicBar.app
+```
+
+Preview release builds should be created with:
+
+```bash
+MUSICBAR_EDITION=preview scripts/build_app.sh
 ```
 
 ## Run in development

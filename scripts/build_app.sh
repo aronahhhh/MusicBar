@@ -10,6 +10,11 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 MODULE_CACHE_DIR="/private/tmp/musicbar-module-cache"
 TMP_BUILD_DIR="$ROOT_DIR/.build/tmp"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+SWIFT_EDITION_FLAGS=()
+
+if [[ "${MUSICBAR_EDITION:-full}" == "preview" ]]; then
+  SWIFT_EDITION_FLAGS=(-D PREVIEW)
+fi
 
 mkdir -p "$BUILD_DIR" "$MODULE_CACHE_DIR" "$TMP_BUILD_DIR"
 export TMPDIR="$TMP_BUILD_DIR"
@@ -21,6 +26,7 @@ swiftc "$ROOT_DIR/scripts/make_icon.swift" \
 swiftc "$ROOT_DIR"/Sources/MusicBarApp/*.swift \
   -sdk "$SDK_PATH" \
   -module-cache-path "$MODULE_CACHE_DIR" \
+  "${SWIFT_EDITION_FLAGS[@]+"${SWIFT_EDITION_FLAGS[@]}"}" \
   -O \
   -o "$BUILD_DIR/MusicBar"
 
@@ -32,4 +38,4 @@ cp "$ROOT_DIR/Resources/MusicBar.icns" "$RESOURCES_DIR/MusicBar.icns"
 chmod +x "$MACOS_DIR/MusicBar"
 codesign --force --deep --sign - "$APP_DIR"
 
-echo "Built $APP_DIR"
+echo "Built $APP_DIR (${MUSICBAR_EDITION:-full})"
