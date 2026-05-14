@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.0
+
+### Added
+
+- Added a 7-day full-feature trial model.
+- Added trial status, purchase entry points, and trial-expired gating for premium interactions.
+
+### Changed
+
+- Removed the public Preview build direction. MusicBar is now a single full-feature app with a trial period.
+
 ## 0.1.3
 
 ### Changed

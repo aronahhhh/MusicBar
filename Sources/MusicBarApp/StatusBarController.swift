@@ -9,9 +9,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private let nowPlayingService: NowPlayingService
     private let lyricsService = LyricsService()
     private let settings = AppSettings()
+    private let license = AppLicense()
     private var menuBarIslandView: NSHostingView<MenuBarIslandView>?
     private var settingsWindow: NSWindow?
     private var lyricsWindow: NSWindow?
+    private var purchaseWindow: NSWindow?
     private var controlPopoverCloseWorkItem: DispatchWorkItem?
     private var isMouseInsideControlPopover = false
     private var hoverTrackingTimer: Timer?
@@ -69,13 +71,15 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private func configurePopover() {
         popover.behavior = .applicationDefined
         popover.animates = true
-        popover.contentSize = NSSize(width: 176, height: 200)
+        popover.contentSize = NSSize(width: 190, height: 270)
         popover.contentViewController = NSHostingController(
             rootView: ActionPopoverView(
+                license: license,
                 onLyrics: { [weak self] in self?.showLyricsWindow() },
                 onSettings: { [weak self] in self?.showSettings() },
                 onUpdate: { [weak self] in self?.openUpdatePage() },
                 onGitHub: { [weak self] in self?.openGitHub() },
+                onPurchase: { [weak self] in self?.showPurchaseWindow() },
                 onQuit: { NSApp.terminate(nil) }
             )
         )
@@ -180,6 +184,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private func showControlPopover() {
         guard let button = statusItem.button,
               nowPlayingService.track != nil,
+              license.isEntitled,
               !popover.isShown,
               lyricsWindow?.isKeyWindow != true else {
             return
@@ -239,6 +244,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             return
         }
 
+        guard license.isEntitled else {
+            closeControlPopoverImmediately()
+            return
+        }
+
         if isMouseInsideHoverControlArea() {
             showControlPopover()
         } else if controlPopover.isShown {
@@ -275,6 +285,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private func showLyricsWindow(activate: Bool = true, closeMenu: Bool = true) {
         if closeMenu {
             closeMainPopover()
+        }
+
+        guard license.isEntitled else {
+            showPurchaseWindow()
+            return
         }
 
         if let track = nowPlayingService.track {
@@ -357,7 +372,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     private func syncAutoLyricsWindow(for track: TrackInfo?) {
-        guard AppEdition.supportsAutoLyricsWindow, settings.autoShowLyricsWindow else {
+        guard license.isEntitled, AppEdition.supportsAutoLyricsWindow, settings.autoShowLyricsWindow else {
             return
         }
 
@@ -380,6 +395,8 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             isAutoLyricsWindowVisible = false
         } else if notification.object as AnyObject? === settingsWindow {
             settingsWindow = nil
+        } else if notification.object as AnyObject? === purchaseWindow {
+            purchaseWindow = nil
         }
     }
 
@@ -400,7 +417,13 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         )
         window.center()
         window.title = "MusicBar Settings"
-        window.contentViewController = NSHostingController(rootView: SettingsView(settings: settings))
+        window.contentViewController = NSHostingController(
+            rootView: SettingsView(
+                settings: settings,
+                license: license,
+                onPurchase: { [weak self] in self?.openPurchasePage() }
+            )
+        )
         window.isReleasedWhenClosed = false
         settingsWindow = window
         window.makeKeyAndOrderFront(nil)
@@ -417,8 +440,43 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         NSWorkspace.shared.open(settings.githubURL)
     }
 
+    private func openPurchasePage() {
+        NSWorkspace.shared.open(license.purchaseURL)
+    }
+
+    private func showPurchaseWindow() {
+        closeMainPopover()
+
+        if let purchaseWindow {
+            purchaseWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 230),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.center()
+        window.title = "MusicBar Trial"
+        window.delegate = self
+        window.contentViewController = NSHostingController(
+            rootView: PurchaseView(
+                license: license,
+                onPurchase: { [weak self] in self?.openPurchasePage() },
+                onClose: { [weak window] in window?.close() }
+            )
+        )
+        window.isReleasedWhenClosed = false
+        purchaseWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     private var settingsWindowHeight: CGFloat {
-        AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin ? 218 : 162
+        AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin ? 278 : 214
     }
 }
 

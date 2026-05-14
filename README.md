@@ -2,13 +2,13 @@
 
 Lightweight now-playing and synced lyrics for the macOS menu bar.
 
-MusicBar Preview is a free macOS menu bar app for people who want quick access to the current song, cover art, playback controls, and a clean lyrics window without keeping Apple Music in the foreground.
+MusicBar is a full-featured macOS menu bar app for people who want quick access to the current song, cover art, playback controls, and a clean lyrics window without keeping Apple Music in the foreground.
 
-> Early preview: the app is usable, but player support and lyrics matching will keep improving through GitHub issues and releases.
+MusicBar includes a 7-day free trial. After the trial, unlock the full version for $1.99 or RMB 3.99.
 
 [![Download MusicBar](https://img.shields.io/badge/Download-MusicBar-2ea44f?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/aronahhhh/MusicBar/releases/latest)
 
-![MusicBar preview](docs/assets/musicbar-preview.png)
+![MusicBar screenshot](docs/assets/musicbar-preview.png)
 
 ## Features
 
@@ -16,7 +16,9 @@ MusicBar Preview is a free macOS menu bar app for people who want quick access t
 - Compact click menu with Lyrics, Settings, Update, GitHub, and Quit actions.
 - Hover playback controls from the menu bar.
 - Resizable Apple Music style lyrics window with synced lyric highlighting.
-- Playback controls for progress, play/pause, previous, next, shuffle, and repeat.
+- Playback controls for progress, play/pause, previous, next, shuffle, repeat, and lyric-line seeking.
+- Auto lyrics window that appears while music is playing and hides when playback pauses.
+- Lyrics window pinning, opacity control, and launch at login.
 - Apple Music support.
 - Lyrics matching through LRCLIB with NetEase fallback for more Chinese tracks.
 - Responsive polling for low-latency menu bar and lyric updates.
@@ -24,19 +26,13 @@ MusicBar Preview is a free macOS menu bar app for people who want quick access t
 
 ## Download
 
-Download the latest free build from GitHub Releases once a release is published.
+Download the latest trial build from GitHub Releases once a release is published.
 
 If you are building locally:
 
 ```bash
 scripts/build_app.sh
 open dist/MusicBar.app
-```
-
-The default local build is the full development build. To create the public GitHub Preview package:
-
-```bash
-MUSICBAR_EDITION=preview scripts/build_app.sh
 ```
 
 ## Requirements
@@ -51,7 +47,7 @@ MUSICBAR_EDITION=preview scripts/build_app.sh
 2. Move it to `/Applications`.
 3. Open it once from Finder.
 4. When macOS asks, allow MusicBar to control Music.
-5. If macOS blocks the unsigned preview build, open System Settings > Privacy & Security and approve it.
+5. If macOS blocks the unsigned trial build, open System Settings > Privacy & Security and approve it.
 
 ## Permissions and Privacy
 
@@ -73,12 +69,6 @@ The bundle is created at:
 dist/MusicBar.app
 ```
 
-Preview release builds should be created with:
-
-```bash
-MUSICBAR_EDITION=preview scripts/build_app.sh
-```
-
 ## Run in development
 
 ```bash
@@ -95,7 +85,7 @@ Add a new `MusicProvider` implementation in `Sources/MusicBarApp/MusicProvider.s
 
 Before publishing:
 
-- Replace the preview image with real screenshots or a short demo GIF when available.
+- Replace the screenshot with a newer demo image or short GIF when available.
 - Update the GitHub Homepage field from the menu bar Settings action.
 - Create a GitHub Release with the built `MusicBar.app` zipped.
 - Keep release notes clear: added, fixed, known limitations.
@@ -105,9 +95,8 @@ The Update action opens the releases page for the configured GitHub repository U
 ## Known limitations
 
 - Lyrics availability depends on third-party matching sources.
-- The preview version currently focuses on Apple Music.
-- Auto lyrics window, lyrics window pinning, opacity controls, launch at login, lyric-line seeking, and more player integrations are not included in this GitHub preview build.
-- Preview builds are ad-hoc signed, not notarized.
+- The trial currently focuses on Apple Music.
+- Trial builds are ad-hoc signed, not notarized.
 
 ## Roadmap
 
@@ -116,7 +105,7 @@ The Update action opens the releases page for the configured GitHub repository U
 - Automatic update support.
 - Optional local `.lrc` lyric import.
 - More menu bar display styles.
-- Pro feature split with a separate distribution channel.
+- Website or reseller-backed license activation.
 
 
 ## License

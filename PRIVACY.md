@@ -28,4 +28,6 @@ MusicBar does not include analytics, tracking SDKs, accounts, or telemetry.
 
 ## Settings
 
-The public GitHub Preview build stores the GitHub homepage setting locally with `UserDefaults`. More advanced settings are reserved for future builds.
+MusicBar stores settings locally with `UserDefaults`, including the GitHub homepage, lyrics window options, launch-at-login preference, trial start date, and local purchase state.
+
+The current trial implementation is local-only. A future paid release may add license activation against a website or reseller service.
