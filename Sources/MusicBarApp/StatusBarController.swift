@@ -15,7 +15,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private var lyricsWindow: NSWindow?
     private var purchaseWindow: NSWindow?
     private var controlPopoverCloseWorkItem: DispatchWorkItem?
-    private var isMouseInsideControlPopover = false
     private var hoverTrackingTimer: Timer?
     private var popoverLocalEventMonitor: Any?
     private var popoverGlobalEventMonitor: Any?
@@ -202,26 +201,30 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     private func keepControlPopoverOpen() {
-        isMouseInsideControlPopover = true
         controlPopoverCloseWorkItem?.cancel()
         controlPopoverCloseWorkItem = nil
     }
 
     private func scheduleControlPopoverClose() {
-        isMouseInsideControlPopover = false
-        controlPopoverCloseWorkItem?.cancel()
+        guard controlPopoverCloseWorkItem == nil else {
+            return
+        }
 
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self,
-                  !self.isMouseInsideControlPopover,
-                  !self.isMouseInsideHoverControlArea() else {
+            guard let self else {
+                return
+            }
+
+            self.controlPopoverCloseWorkItem = nil
+
+            guard !self.isMouseInsideHoverControlArea() else {
                 return
             }
 
             self.controlPopover.performClose(nil)
         }
         controlPopoverCloseWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
     }
 
     private func closeControlPopoverImmediately() {
