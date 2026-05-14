@@ -3,10 +3,11 @@ import SwiftUI
 
 struct MenuBarIslandView: View {
     @ObservedObject var service: NowPlayingService
+    @ObservedObject var settings: AppSettings
 
     var body: some View {
         ZStack {
-            if let track = service.track {
+            if let track = service.track, settings.showNowPlayingInMenuBar {
                 NowPlayingIslandContent(track: track)
                     .id(trackAnimationID(track))
                     .transition(

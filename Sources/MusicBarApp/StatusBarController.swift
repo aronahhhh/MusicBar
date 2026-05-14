@@ -48,7 +48,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         let hostingView = HoverTrackingHostingView(
-            rootView: MenuBarIslandView(service: nowPlayingService),
+            rootView: MenuBarIslandView(service: nowPlayingService, settings: settings),
             onMouseEntered: { [weak self] in self?.showControlPopover() },
             onMouseExited: { [weak self] in self?.hideControlPopover() }
         )
@@ -104,6 +104,13 @@ final class StatusBarController: NSObject, NSWindowDelegate {
                 self?.renderStatusItem(track)
             }
             .store(in: &cancellables)
+
+        settings.$showNowPlayingInMenuBar
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.renderStatusItem(self?.nowPlayingService.track)
+            }
+            .store(in: &cancellables)
     }
 
     private func renderStatusItem(_ track: TrackInfo?) {
@@ -112,7 +119,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         }
 
         if let track {
-            statusItem.length = 212
+            statusItem.length = settings.showNowPlayingInMenuBar ? 212 : 104
             button.toolTip = "\(track.displayTitle) - \(track.displayArtist)"
             if lyricsWindow?.isVisible == true {
                 lyricsService.loadLyrics(for: track)
@@ -127,6 +134,12 @@ final class StatusBarController: NSObject, NSWindowDelegate {
 
     @objc private func togglePopover() {
         guard let button = statusItem.button else {
+            return
+        }
+
+        if NSApp.currentEvent?.type == .leftMouseUp {
+            closeControlPopoverImmediately()
+            showSettings()
             return
         }
 
@@ -340,6 +353,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
                     window?.alphaValue = max(0.18, opacity)
                 }
             )
+            .environmentObject(settings)
         )
         window.isReleasedWhenClosed = false
         lyricsWindow = window
@@ -413,7 +427,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: settingsWindowHeight),
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 530),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -424,7 +438,9 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             rootView: SettingsView(
                 settings: settings,
                 license: license,
-                onPurchase: { [weak self] in self?.openPurchasePage() }
+                onPurchase: { [weak self] in self?.openPurchasePage() },
+                onGitHub: { [weak self] in self?.openGitHub() },
+                onUpdate: { [weak self] in self?.openUpdatePage() }
             )
         )
         window.isReleasedWhenClosed = false
@@ -457,7 +473,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 230),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 260),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -478,9 +494,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private var settingsWindowHeight: CGFloat {
-        AppEdition.supportsAutoLyricsWindow || AppEdition.supportsLaunchAtLogin ? 278 : 214
-    }
 }
 
 private final class PassthroughHostingView<Content: View>: NSHostingView<Content> {

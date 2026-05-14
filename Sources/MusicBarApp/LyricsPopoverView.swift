@@ -32,11 +32,7 @@ private struct LyricsDisplayView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color.black.opacity(0.92),
-                    Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.94),
-                    Color.black.opacity(0.9)
-                ],
+                colors: themeColors,
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -111,13 +107,34 @@ private struct LyricsDisplayView: View {
 
             Spacer(minLength: 0)
 
-            #if !PREVIEW
             if showsControls,
                let settings,
                AppEdition.supportsLyricsWindowPinning || AppEdition.supportsLyricsWindowOpacity {
                 lyricsWindowControls(settings: settings, onOpacityChanged: onOpacityChanged)
             }
-            #endif
+        }
+    }
+
+    private var themeColors: [Color] {
+        switch settings?.lyricsTheme ?? .midnight {
+        case .midnight:
+            return [
+                Color.black.opacity(0.92),
+                Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.94),
+                Color.black.opacity(0.9)
+            ]
+        case .glass:
+            return [
+                Color(red: 0.06, green: 0.08, blue: 0.12).opacity(0.84),
+                Color(red: 0.12, green: 0.17, blue: 0.24).opacity(0.82),
+                Color.black.opacity(0.78)
+            ]
+        case .warm:
+            return [
+                Color(red: 0.17, green: 0.10, blue: 0.08).opacity(0.92),
+                Color(red: 0.30, green: 0.16, blue: 0.11).opacity(0.9),
+                Color.black.opacity(0.86)
+            ]
         }
     }
 
@@ -161,7 +178,6 @@ private struct LyricsDisplayView: View {
         }
     }
 
-    #if !PREVIEW
     private func lyricsWindowControls(settings: AppSettings, onOpacityChanged: @escaping (Double) -> Void) -> some View {
         HStack(spacing: 8) {
             if AppEdition.supportsLyricsWindowPinning {
@@ -218,7 +234,6 @@ private struct LyricsDisplayView: View {
             }
         }
     }
-    #endif
 
     private func schedulePlaybackControlsHide() {
         guard showsControls else {
@@ -427,7 +442,6 @@ private struct ScrubProgressBar: View {
     }
 }
 
-#if !PREVIEW
 private struct OpacityPanel: View {
     @ObservedObject var settings: AppSettings
     let onOpacityChanged: (Double) -> Void
@@ -462,7 +476,6 @@ private struct OpacityPanel: View {
         .onAppear(perform: onInteraction)
     }
 }
-#endif
 
 private struct AppleMusicLyricsLinesView: View {
     let lines: [LyricLine]
@@ -473,6 +486,7 @@ private struct AppleMusicLyricsLinesView: View {
     let fallbackTitle: String
     let fallbackArtist: String
     let onInteraction: () -> Void
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
@@ -480,7 +494,7 @@ private struct AppleMusicLyricsLinesView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .center, spacing: large ? 18 : 12) {
+                    VStack(alignment: .center, spacing: (large ? 18 : 12) * settings.lyricsLineSpacing) {
                         ForEach(lines) { line in
                             Text(line.text)
                                 .font(.system(size: fontSize(for: line.id, currentIndex: currentIndex), weight: fontWeight(for: line.id, currentIndex: currentIndex), design: .rounded))
@@ -519,10 +533,11 @@ private struct AppleMusicLyricsLinesView: View {
 
     private func fontSize(for id: Int, currentIndex: Int?) -> CGFloat {
         guard isSynced, let currentIndex else {
-            return large ? 22 : 17
+            return (large ? 22 : 17) * settings.lyricsFontScale
         }
 
-        return id == currentIndex ? (large ? 30 : 22) : (large ? 22 : 16)
+        let baseSize: CGFloat = id == currentIndex ? (large ? 30 : 22) : (large ? 22 : 16)
+        return baseSize * settings.lyricsFontScale
     }
 
     private func fontWeight(for id: Int, currentIndex: Int?) -> Font.Weight {
@@ -569,7 +584,6 @@ private struct AppleMusicLyricsLinesView: View {
     }
 }
 
-#if !PREVIEW
 private struct LyricSeekModifier: ViewModifier {
     let line: LyricLine
     let isSynced: Bool
@@ -591,15 +605,3 @@ private struct LyricSeekModifier: ViewModifier {
             .help(line.time == nil ? "" : "Jump to this lyric")
     }
 }
-#else
-private struct LyricSeekModifier: ViewModifier {
-    let line: LyricLine
-    let isSynced: Bool
-    @ObservedObject var nowPlayingService: NowPlayingService
-    let onInteraction: () -> Void
-
-    func body(content: Content) -> some View {
-        content
-    }
-}
-#endif

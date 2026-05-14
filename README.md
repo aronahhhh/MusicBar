@@ -19,6 +19,9 @@ MusicBar includes a 7-day free trial. After the trial, unlock the full version f
 - Playback controls for progress, play/pause, previous, next, shuffle, repeat, and lyric-line seeking.
 - Auto lyrics window that appears while music is playing and hides when playback pauses.
 - Lyrics window pinning, opacity control, and launch at login.
+- Settings window with General, Lyrics, and About sections.
+- Language selection for Simplified Chinese, Traditional Chinese, English, or the system language.
+- Region-aware trial pricing: RMB 3.99 in mainland China, $1.99 elsewhere.
 - Apple Music support.
 - Lyrics matching through LRCLIB with NetEase fallback for more Chinese tracks.
 - Responsive polling for low-latency menu bar and lyric updates.

@@ -52,6 +52,30 @@ final class AppLicense: ObservableObject {
         return "Trial expired"
     }
 
+    var detectedRegionName: String {
+        if isMainlandChina {
+            return "中国大陆 🇨🇳"
+        }
+
+        return Locale.current.localizedString(forRegionCode: detectedRegionCode) ?? detectedRegionCode
+    }
+
+    var detectedRegionCode: String {
+        Locale.current.language.region?.identifier ?? "US"
+    }
+
+    var isMainlandChina: Bool {
+        detectedRegionCode.uppercased() == "CN"
+    }
+
+    var localizedPrice: String {
+        isMainlandChina ? "RMB 3.99" : "$1.99"
+    }
+
+    var regionPricingText: String {
+        "MusicBar detected your country or region as \(detectedRegionName). The full version price is \(localizedPrice)."
+    }
+
     var purchaseURL: URL {
         URL(string: AppEdition.purchaseURLString) ?? URL(string: AppEdition.githubURLString)!
     }
