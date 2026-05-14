@@ -265,18 +265,32 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             return
         }
 
-        if isMouseInsideHoverControlArea() {
+        if controlPopover.isShown {
+            if isMouseInsideHoverControlArea() {
+                controlPopoverCloseWorkItem?.cancel()
+                controlPopoverCloseWorkItem = nil
+            } else {
+                scheduleControlPopoverClose()
+            }
+        } else if isMouseInsideStatusButtonTriggerArea() {
             showControlPopover()
-        } else if controlPopover.isShown {
-            scheduleControlPopoverClose()
         }
+    }
+
+    private func isMouseInsideStatusButtonTriggerArea() -> Bool {
+        let mouseLocation = NSEvent.mouseLocation
+        guard let buttonFrame = statusButtonScreenFrame() else {
+            return false
+        }
+
+        return buttonFrame.insetBy(dx: -1, dy: 0).contains(mouseLocation)
     }
 
     private func isMouseInsideHoverControlArea() -> Bool {
         let mouseLocation = NSEvent.mouseLocation
 
         if let buttonFrame = statusButtonScreenFrame(),
-           buttonFrame.insetBy(dx: -8, dy: -8).contains(mouseLocation) {
+           buttonFrame.insetBy(dx: -4, dy: -2).contains(mouseLocation) {
             return true
         }
 
