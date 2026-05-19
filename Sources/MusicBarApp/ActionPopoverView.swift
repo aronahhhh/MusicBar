@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ActionPopoverView: View {
     let onSettings: () -> Void
@@ -46,6 +47,7 @@ private struct ActionButton: View {
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject var license: AppLicense
+    @ObservedObject var updateService: AppUpdateService
     let onPurchase: () -> Void
     let onGitHub: () -> Void
     let onUpdate: () -> Void
@@ -74,8 +76,11 @@ struct SettingsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 640, height: 530)
+        .frame(width: 560, height: 460)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            updateService.setAutomaticallyChecksForUpdates(settings.autoCheckForUpdates)
+        }
     }
 
     private var header: some View {
@@ -123,6 +128,18 @@ struct SettingsView: View {
                 isOn: $settings.launchAtLogin
             )
 
+            PreferenceToggleRow(
+                title: text.autoUpdate,
+                subtitle: updateService.isSparkleAvailable ? text.autoUpdateHint : text.updateFallbackHint,
+                isOn: Binding(
+                    get: { settings.autoCheckForUpdates },
+                    set: { value in
+                        settings.autoCheckForUpdates = value
+                        updateService.setAutomaticallyChecksForUpdates(value)
+                    }
+                )
+            )
+
             PreferenceRow(title: text.license, subtitle: license.statusText) {
                 Button(text.purchase, action: onPurchase)
             }
@@ -131,48 +148,116 @@ struct SettingsView: View {
 
     private var lyricsPane: some View {
         FormPane {
-            PreferenceToggleRow(
-                title: text.autoLyrics,
-                subtitle: text.autoLyricsHint,
-                isOn: $settings.autoShowLyricsWindow
-            )
+            VStack(spacing: 0) {
+                Group {
+                    PreferenceToggleRow(
+                        title: text.autoLyrics,
+                        subtitle: text.autoLyricsHint,
+                        isOn: $settings.autoShowLyricsWindow
+                    )
 
-            PreferenceRow(title: text.theme, subtitle: text.themeHint) {
-                Picker("", selection: $settings.lyricsTheme) {
-                    ForEach(LyricsTheme.allCases) { theme in
-                        Text(text.themeName(theme)).tag(theme)
+                    PreferenceRow(title: text.theme, subtitle: text.themeHint) {
+                        Picker("", selection: $settings.lyricsTheme) {
+                            ForEach(LyricsTheme.allCases) { theme in
+                                Text(text.themeName(theme)).tag(theme)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                    }
+
+                    PreferenceSliderRow(
+                        title: text.fontSize,
+                        value: $settings.lyricsFontScale,
+                        range: 0.82...1.28,
+                        valueText: "\(Int(settings.lyricsFontScale * 100))%"
+                    )
+
+                    PreferenceSliderRow(
+                        title: text.lineSpacing,
+                        value: $settings.lyricsLineSpacing,
+                        range: 0.75...1.35,
+                        valueText: "\(Int(settings.lyricsLineSpacing * 100))%"
+                    )
+
+                    PreferenceRow(title: text.textColor, subtitle: text.textColorHint) {
+                        Picker("", selection: $settings.lyricsTextColorMode) {
+                            ForEach(LyricsTextColorMode.allCases) { mode in
+                                Text(text.textColorName(mode)).tag(mode)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 125)
+                    }
+
+                    if settings.lyricsTextColorMode == .custom {
+                        PreferenceRow(title: text.customTextColor, subtitle: settings.lyricsCustomTextColorHex) {
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: settings.lyricsCustomTextColorHex) },
+                                set: { settings.lyricsCustomTextColorHex = $0.hexString }
+                            ))
+                            .labelsHidden()
+                            .frame(width: 52)
+                        }
+                    }
+
+                    PreferenceRow(title: text.background, subtitle: text.backgroundHint) {
+                        Picker("", selection: $settings.lyricsBackgroundMode) {
+                            ForEach(LyricsBackgroundMode.allCases) { mode in
+                                Text(text.backgroundName(mode)).tag(mode)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 125)
                     }
                 }
-                .labelsHidden()
-                .frame(width: 150)
+
+                Group {
+                    if settings.lyricsBackgroundMode == .custom {
+                        PreferenceRow(title: text.customBackground, subtitle: settings.lyricsCustomBackgroundColorHex) {
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: settings.lyricsCustomBackgroundColorHex) },
+                                set: { settings.lyricsCustomBackgroundColorHex = $0.hexString }
+                            ))
+                            .labelsHidden()
+                            .frame(width: 52)
+                        }
+                    }
+
+                    if settings.lyricsBackgroundMode == .image {
+                        PreferenceRow(title: text.backgroundImage, subtitle: imageSubtitle) {
+                            Button(text.choose, action: chooseBackgroundImage)
+                        }
+                    }
+
+                    PreferenceSliderRow(
+                        title: text.backgroundDim,
+                        value: $settings.lyricsBackgroundDim,
+                        range: 0.0...0.86,
+                        valueText: "\(Int(settings.lyricsBackgroundDim * 100))%"
+                    )
+
+                    PreferenceSliderRow(
+                        title: text.backgroundBlur,
+                        value: $settings.lyricsBackgroundBlur,
+                        range: 0.0...18.0,
+                        valueText: "\(Int(settings.lyricsBackgroundBlur))"
+                    )
+
+                    PreferenceSliderRow(
+                        title: text.windowOpacity,
+                        value: $settings.lyricsWindowOpacity,
+                        range: 0.18...1.0,
+                        valueText: "\(Int(settings.lyricsWindowOpacity * 100))%"
+                    )
+
+                    PreferenceToggleRow(
+                        title: text.alwaysOnTop,
+                        subtitle: text.alwaysOnTopHint,
+                        isOn: $settings.lyricsWindowAlwaysOnTop
+                    )
+                }
             }
-
-            PreferenceSliderRow(
-                title: text.fontSize,
-                value: $settings.lyricsFontScale,
-                range: 0.82...1.28,
-                valueText: "\(Int(settings.lyricsFontScale * 100))%"
-            )
-
-            PreferenceSliderRow(
-                title: text.lineSpacing,
-                value: $settings.lyricsLineSpacing,
-                range: 0.75...1.35,
-                valueText: "\(Int(settings.lyricsLineSpacing * 100))%"
-            )
-
-            PreferenceSliderRow(
-                title: text.windowOpacity,
-                value: $settings.lyricsWindowOpacity,
-                range: 0.18...1.0,
-                valueText: "\(Int(settings.lyricsWindowOpacity * 100))%"
-            )
-
-            PreferenceToggleRow(
-                title: text.alwaysOnTop,
-                subtitle: text.alwaysOnTopHint,
-                isOn: $settings.lyricsWindowAlwaysOnTop
-            )
         }
     }
 
@@ -228,6 +313,20 @@ struct SettingsView: View {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         return "\(version) (\(build))"
     }
+
+    private var imageSubtitle: String {
+        settings.lyricsBackgroundImagePath.isEmpty ? text.noImageSelected : URL(fileURLWithPath: settings.lyricsBackgroundImagePath).lastPathComponent
+    }
+
+    private func chooseBackgroundImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.lyricsBackgroundImagePath = url.path
+        }
+    }
 }
 
 enum SettingsTab: String, CaseIterable {
@@ -274,12 +373,14 @@ private struct FormPane<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(spacing: 0) {
-            content
-            Spacer(minLength: 0)
+        ScrollView {
+            VStack(spacing: 0) {
+                content
+            }
+            .padding(.bottom, 12)
         }
         .padding(.horizontal, 34)
-        .padding(.top, 24)
+        .padding(.top, 14)
     }
 }
 
@@ -380,6 +481,20 @@ struct SettingsText {
     var windowOpacity: String { value("Window Opacity", "窗口透明度", "視窗透明度") }
     var alwaysOnTop: String { value("Always on Top", "置顶显示", "置頂顯示") }
     var alwaysOnTopHint: String { value("Keep the lyrics window above other windows.", "让歌词窗口保持在其他窗口上方。", "讓歌詞視窗保持在其他視窗上方。") }
+    var autoUpdate: String { value("Automatic Updates", "自动检查更新", "自動檢查更新") }
+    var autoUpdateHint: String { value("Check for new MusicBar releases automatically.", "自动检查新的 MusicBar 版本。", "自動檢查新的 MusicBar 版本。") }
+    var updateFallbackHint: String { value("Sparkle is not embedded; manual release page will be opened.", "当前构建未嵌入 Sparkle，会打开手动下载页。", "目前建置未嵌入 Sparkle，會開啟手動下載頁。") }
+    var textColor: String { value("Lyric Color", "歌词颜色", "歌詞顏色") }
+    var textColorHint: String { value("Choose white, black, or a custom color.", "选择白色、黑色或自定义颜色。", "選擇白色、黑色或自訂顏色。") }
+    var customTextColor: String { value("Custom Lyric Color", "自定义歌词颜色", "自訂歌詞顏色") }
+    var background: String { value("Background", "背景", "背景") }
+    var backgroundHint: String { value("Use a preset, custom color, or image.", "使用预设色、自定义颜色或图片。", "使用預設色、自訂顏色或圖片。") }
+    var customBackground: String { value("Custom Background", "自定义背景色", "自訂背景色") }
+    var backgroundImage: String { value("Background Image", "背景图片", "背景圖片") }
+    var noImageSelected: String { value("No image selected.", "未选择图片。", "未選擇圖片。") }
+    var choose: String { value("Choose", "选择", "選擇") }
+    var backgroundDim: String { value("Background Dim", "背景暗化", "背景暗化") }
+    var backgroundBlur: String { value("Background Blur", "背景模糊", "背景模糊") }
     var github: String { value("View on GitHub", "上 GitHub 查看", "到 GitHub 查看") }
     var update: String { value("Check for Updates", "检查更新", "檢查更新") }
     var website: String { value("Visit Website", "访问网站", "造訪網站") }
@@ -403,9 +518,9 @@ struct SettingsText {
 
     func regionPricingText(_ license: AppLicense) -> String {
         value(
-            "MusicBar detected your country or region as \(license.detectedRegionName). The full version price is \(license.localizedPrice).",
-            "MusicBar 检测到您所在的国家或地区为\(license.detectedRegionName)，完整版本价格为 \(license.localizedPrice)。",
-            "MusicBar 偵測到您所在的國家或地區為\(license.detectedRegionName)，完整版本價格為 \(license.localizedPrice)。"
+            "The full version price in your country or region is \(license.localizedPrice).",
+            "在您的国家或者地区完整版本价格为 \(license.localizedPrice)。",
+            "在您的國家或者地區完整版本價格為 \(license.localizedPrice)。"
         )
     }
 
@@ -431,6 +546,32 @@ struct SettingsText {
         }
     }
 
+    func textColorName(_ mode: LyricsTextColorMode) -> String {
+        switch mode {
+        case .white:
+            return value("White", "白色", "白色")
+        case .black:
+            return value("Black", "黑色", "黑色")
+        case .custom:
+            return value("Custom", "自定义", "自訂")
+        }
+    }
+
+    func backgroundName(_ mode: LyricsBackgroundMode) -> String {
+        switch mode {
+        case .midnight:
+            return value("Midnight", "深夜", "深夜")
+        case .graphite:
+            return value("Graphite", "石墨", "石墨")
+        case .ivory:
+            return value("Ivory", "象牙白", "象牙白")
+        case .custom:
+            return value("Custom", "自定义", "自訂")
+        case .image:
+            return value("Image", "图片", "圖片")
+        }
+    }
+
     private func value(_ english: String, _ simplified: String, _ traditional: String) -> String {
         if languageCode == "zh-Hans" {
             return simplified
@@ -439,6 +580,31 @@ struct SettingsText {
             return traditional
         }
         return english
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        let scanner = Scanner(string: cleaned)
+        var value: UInt64 = 0
+        scanner.scanHexInt64(&value)
+
+        let red = Double((value >> 16) & 0xff) / 255
+        let green = Double((value >> 8) & 0xff) / 255
+        let blue = Double(value & 0xff) / 255
+        self.init(red: red, green: green, blue: blue)
+    }
+
+    var hexString: String {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else {
+            return "#FFFFFF"
+        }
+
+        let red = Int(round(color.redComponent * 255))
+        let green = Int(round(color.greenComponent * 255))
+        let blue = Int(round(color.blueComponent * 255))
+        return String(format: "#%02X%02X%02X", red, green, blue)
     }
 }
 

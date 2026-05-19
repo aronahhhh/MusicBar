@@ -7,14 +7,25 @@ struct LyricsWindowView: View {
     let onOpacityChanged: (Double) -> Void
 
     var body: some View {
-        LyricsDisplayView(
-            service: service,
-            nowPlayingService: nowPlayingService,
-            showsControls: true,
-            settings: settings,
-            onOpacityChanged: onOpacityChanged
-        )
+        GeometryReader { geometry in
+            let fullWindowSize = CGSize(
+                width: geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing,
+                height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
+            )
+
+            LyricsDisplayView(
+                service: service,
+                nowPlayingService: nowPlayingService,
+                showsControls: true,
+                settings: settings,
+                windowSize: fullWindowSize,
+                onOpacityChanged: onOpacityChanged
+            )
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .ignoresSafeArea()
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
     }
 }
 
@@ -22,43 +33,38 @@ private struct LyricsDisplayView: View {
     @ObservedObject var service: LyricsService
     @ObservedObject var nowPlayingService: NowPlayingService
     let showsControls: Bool
-    let settings: AppSettings?
+    @ObservedObject var settings: AppSettings
+    let windowSize: CGSize
     var onOpacityChanged: (Double) -> Void = { _ in }
     @State private var showsOpacityPanel = false
     @State private var opacityPanelCloseToken = UUID()
     @State private var showsPlaybackControls = true
     @State private var playbackControlsHideToken = UUID()
+    @State private var hostingWindow: NSWindow?
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: themeColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            LyricsBackgroundView(settings: settings, windowSize: windowSize)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .zIndex(0)
 
             VStack(alignment: .leading, spacing: 14) {
                 header
 
                 content
             }
-            .padding(showsControls ? 22 : 18)
+            .padding(showsControls ? 20 : 18)
+            .zIndex(1)
 
             if showsControls && showsPlaybackControls {
-                VStack {
-                    Spacer()
-                    PlaybackControlsView(nowPlayingService: nowPlayingService, compact: false)
-                        .frame(maxWidth: 360)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 14)
-                        .background(.black.opacity(0.34), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .padding(.bottom, 22)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                .animation(.easeInOut(duration: 0.24), value: showsPlaybackControls)
+                playbackControlsOverlay
+                    .zIndex(10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .contentShape(Rectangle())
+        .animation(.easeInOut(duration: 0.22), value: showsPlaybackControls)
         .onAppear {
             schedulePlaybackControlsHide()
         }
@@ -75,12 +81,69 @@ private struct LyricsDisplayView: View {
                 schedulePlaybackControlsHide()
             }
         }
+        .onContinuousHover { phase in
+            guard showsControls else {
+                return
+            }
+
+            switch phase {
+            case .active:
+                revealPlaybackControls()
+            case .ended:
+                schedulePlaybackControlsHide(after: 0.35)
+            }
+        }
         .simultaneousGesture(
             DragGesture(minimumDistance: 1)
                 .onChanged { _ in
                     revealPlaybackControls()
                 }
         )
+        .simultaneousGesture(
+            TapGesture()
+                .onEnded {
+                    revealPlaybackControls()
+                }
+        )
+        .background(
+            LyricsWindowAccessor { window in
+                if hostingWindow !== window {
+                    hostingWindow = window
+                }
+            }
+        )
+    }
+
+    private var playbackControlsOverlay: some View {
+        PlaybackControlsView(
+            nowPlayingService: nowPlayingService,
+            compact: false,
+            onScrubBegan: disableWindowBackgroundDragging,
+            onScrubFinished: restoreWindowBackgroundDragging
+        )
+            .frame(maxWidth: 268)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(.white.opacity(0.18), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .allowsHitTesting(true)
+    }
+
+    private func disableWindowBackgroundDragging() {
+        hostingWindow?.isMovableByWindowBackground = false
+    }
+
+    private func restoreWindowBackgroundDragging() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            hostingWindow?.isMovableByWindowBackground = true
+        }
     }
 
     private var header: some View {
@@ -92,49 +155,36 @@ private struct LyricsDisplayView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(track.displayTitle)
                         .font(.system(size: showsControls ? 15 : 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(titleColor)
                         .lineLimit(1)
                     Text(track.displayArtist)
                         .font(.system(size: showsControls ? 12 : 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(titleColor.opacity(0.58))
                         .lineLimit(1)
                 }
             } else {
                 Text("Lyrics")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(titleColor)
             }
 
             Spacer(minLength: 0)
 
             if showsControls,
-               let settings,
                AppEdition.supportsLyricsWindowPinning || AppEdition.supportsLyricsWindowOpacity {
                 lyricsWindowControls(settings: settings, onOpacityChanged: onOpacityChanged)
             }
         }
     }
 
-    private var themeColors: [Color] {
-        switch settings?.lyricsTheme ?? .midnight {
-        case .midnight:
-            return [
-                Color.black.opacity(0.92),
-                Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.94),
-                Color.black.opacity(0.9)
-            ]
-        case .glass:
-            return [
-                Color(red: 0.06, green: 0.08, blue: 0.12).opacity(0.84),
-                Color(red: 0.12, green: 0.17, blue: 0.24).opacity(0.82),
-                Color.black.opacity(0.78)
-            ]
-        case .warm:
-            return [
-                Color(red: 0.17, green: 0.10, blue: 0.08).opacity(0.92),
-                Color(red: 0.30, green: 0.16, blue: 0.11).opacity(0.9),
-                Color.black.opacity(0.86)
-            ]
+    private var titleColor: Color {
+        switch settings.lyricsTextColorMode {
+        case .white:
+            return .white
+        case .black:
+            return .black
+        case .custom:
+            return Color(hex: settings.lyricsCustomTextColorHex)
         }
     }
 
@@ -235,14 +285,14 @@ private struct LyricsDisplayView: View {
         }
     }
 
-    private func schedulePlaybackControlsHide() {
+    private func schedulePlaybackControlsHide(after delay: TimeInterval = 2.6) {
         guard showsControls else {
             return
         }
 
         let token = UUID()
         playbackControlsHideToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             guard playbackControlsHideToken == token else {
                 return
             }
@@ -268,12 +318,21 @@ private struct LyricsDisplayView: View {
 struct PlaybackControlsView: View {
     @ObservedObject var nowPlayingService: NowPlayingService
     let compact: Bool
+    let onScrubBegan: () -> Void
+    let onScrubFinished: () -> Void
     @State private var isScrubbing = false
     @State private var scrubPosition: TimeInterval = 0
 
-    init(nowPlayingService: NowPlayingService, compact: Bool = false) {
+    init(
+        nowPlayingService: NowPlayingService,
+        compact: Bool = false,
+        onScrubBegan: @escaping () -> Void = {},
+        onScrubFinished: @escaping () -> Void = {}
+    ) {
         self.nowPlayingService = nowPlayingService
         self.compact = compact
+        self.onScrubBegan = onScrubBegan
+        self.onScrubFinished = onScrubFinished
     }
 
     var body: some View {
@@ -283,23 +342,30 @@ struct PlaybackControlsView: View {
             let livePosition = clampedPosition(for: track, now: timeline.date)
             let sliderValue = isScrubbing ? scrubPosition : livePosition
 
-            VStack(spacing: compact ? 8 : 13) {
-                VStack(spacing: compact ? 5 : 9) {
+            VStack(spacing: compact ? 8 : 8) {
+                VStack(spacing: compact ? 5 : 6) {
                     ScrubProgressBar(
                         value: sliderValue,
                         duration: duration,
                         isDisabled: duration <= 0,
+                        onScrubBegan: {
+                            isScrubbing = true
+                            onScrubBegan()
+                        },
                         onScrubChanged: { position in
                             scrubPosition = position
                             isScrubbing = true
                         },
                         onScrubEnded: { position in
                             scrubPosition = position
-                            isScrubbing = false
                             nowPlayingService.seek(to: position)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                isScrubbing = false
+                                onScrubFinished()
+                            }
                         }
                     )
-                    .frame(height: 14)
+                    .frame(height: compact ? 20 : 16)
 
                     if !compact {
                         HStack {
@@ -307,58 +373,70 @@ struct PlaybackControlsView: View {
                             Spacer()
                             Text(duration > 0 ? "-\(formatTime(max(duration - sliderValue, 0)))" : "--:--")
                         }
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.58))
                     }
                 }
 
-                HStack(spacing: compact ? 18 : 28) {
+                HStack(spacing: compact ? 18 : 18) {
                     Button {
                         nowPlayingService.toggleShuffle()
                     } label: {
                         Image(systemName: "shuffle")
-                            .font(.system(size: compact ? 15 : 20, weight: .bold))
-                            .frame(width: compact ? 24 : 34, height: compact ? 24 : 34)
-                            .background(.white.opacity(nowPlayingService.isShuffleEnabled ? 0.3 : 0.13), in: Circle())
+                            .font(.system(size: compact ? 15 : 16, weight: .bold))
+                            .frame(width: compact ? 24 : 24, height: compact ? 24 : 24)
+                            .background(selectionFill(nowPlayingService.isShuffleEnabled), in: Circle())
                     }
 
                     Button {
                         nowPlayingService.previousTrack()
                     } label: {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: compact ? 20 : 28, weight: .bold))
+                            .font(.system(size: compact ? 20 : 23, weight: .bold))
                     }
 
                     Button {
                         nowPlayingService.togglePlayPause()
                     } label: {
                         Image(systemName: track?.state == .playing ? "pause.fill" : "play.fill")
-                            .font(.system(size: compact ? 28 : 38, weight: .bold))
-                            .frame(width: compact ? 36 : 50, height: compact ? 34 : 44)
+                            .font(.system(size: compact ? 28 : 28, weight: .bold))
+                            .frame(width: compact ? 36 : 36, height: compact ? 34 : 32)
                     }
 
                     Button {
                         nowPlayingService.nextTrack()
                     } label: {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: compact ? 20 : 28, weight: .bold))
+                            .font(.system(size: compact ? 20 : 23, weight: .bold))
                     }
 
                     Button {
                         nowPlayingService.toggleRepeat()
                     } label: {
                         Image(systemName: "repeat")
-                            .font(.system(size: compact ? 15 : 20, weight: .bold))
-                            .frame(width: compact ? 24 : 34, height: compact ? 24 : 34)
-                            .background(.white.opacity(nowPlayingService.isRepeatEnabled ? 0.3 : 0), in: Circle())
+                            .font(.system(size: compact ? 15 : 16, weight: .bold))
+                            .frame(width: compact ? 24 : 24, height: compact ? 24 : 24)
+                            .background(selectionFill(nowPlayingService.isRepeatEnabled), in: Circle())
                     }
                 }
                 .buttonStyle(AppleMusicControlButtonStyle())
                 .foregroundStyle(.white.opacity(track == nil ? 0.32 : 0.86))
                 .disabled(track == nil)
+
+                if !compact {
+                    HStack(spacing: 12) {
+                        VolumeControl(nowPlayingService: nowPlayingService)
+                        OutputDeviceMenu(nowPlayingService: nowPlayingService)
+                    }
+                    .padding(.top, 1)
+                }
             }
             .padding(.top, compact ? 0 : 6)
         }
+    }
+
+    private func selectionFill(_ selected: Bool) -> Color {
+        selected ? .white.opacity(0.3) : .white.opacity(0.12)
     }
 
     private func clampedPosition(for track: TrackInfo?, now: Date) -> TimeInterval {
@@ -390,12 +468,245 @@ private struct AppleMusicControlButtonStyle: ButtonStyle {
     }
 }
 
+private struct LyricsBackgroundView: View {
+    @ObservedObject var settings: AppSettings
+    let windowSize: CGSize
+    @State private var image: NSImage?
+    @State private var loadedPath = ""
+
+    var body: some View {
+        ZStack {
+            if settings.lyricsBackgroundMode == .image, let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .frame(width: safeWindowSize.width, height: safeWindowSize.height)
+                    .blur(radius: min(settings.lyricsBackgroundBlur, 8))
+            } else {
+                LinearGradient(
+                    colors: backgroundColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+
+            Color.black.opacity(settings.lyricsBackgroundDim)
+        }
+        .frame(width: safeWindowSize.width, height: safeWindowSize.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .onAppear(perform: loadImageIfNeeded)
+        .onChange(of: settings.lyricsBackgroundImagePath) { _ in
+            loadImageIfNeeded()
+        }
+        .onChange(of: settings.lyricsBackgroundMode) { _ in
+            loadImageIfNeeded()
+        }
+    }
+
+    private var safeWindowSize: CGSize {
+        CGSize(width: max(windowSize.width, 1), height: max(windowSize.height, 1))
+    }
+
+    private var backgroundColors: [Color] {
+        if settings.lyricsBackgroundMode == .custom {
+            return [Color(hex: settings.lyricsCustomBackgroundColorHex), Color.black.opacity(0.85)]
+        }
+
+        switch settings.lyricsBackgroundMode {
+        case .midnight:
+            return [Color.black.opacity(0.94), Color(red: 0.08, green: 0.09, blue: 0.11).opacity(0.96)]
+        case .graphite:
+            return [Color(red: 0.13, green: 0.14, blue: 0.16), Color(red: 0.02, green: 0.02, blue: 0.03)]
+        case .ivory:
+            return [Color(red: 0.95, green: 0.92, blue: 0.84), Color(red: 0.62, green: 0.56, blue: 0.46)]
+        case .custom:
+            return [Color(hex: settings.lyricsCustomBackgroundColorHex), Color.black.opacity(0.85)]
+        case .image:
+            return [Color.black, Color.black.opacity(0.8)]
+        }
+    }
+
+    private func loadImageIfNeeded() {
+        let path = settings.lyricsBackgroundImagePath
+        guard settings.lyricsBackgroundMode == .image, !path.isEmpty else {
+            image = nil
+            loadedPath = ""
+            return
+        }
+
+        guard path != loadedPath else {
+            return
+        }
+
+        loadedPath = path
+        image = NSImage(contentsOfFile: path)
+    }
+}
+
+private struct VolumeControl: View {
+    @ObservedObject var nowPlayingService: NowPlayingService
+    @State private var localVolume: Double = 100
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.68))
+
+            Slider(
+                value: Binding(
+                    get: { localVolume },
+                    set: { value in
+                        localVolume = value
+                        nowPlayingService.setSoundVolume(Int(value.rounded()))
+                    }
+                ),
+                in: 0...100
+            )
+            .frame(width: 78)
+        }
+        .onAppear {
+            localVolume = Double(nowPlayingService.volume)
+        }
+        .onChange(of: nowPlayingService.volume) { volume in
+            localVolume = Double(volume)
+        }
+    }
+}
+
+private struct OutputDeviceMenu: View {
+    @ObservedObject var nowPlayingService: NowPlayingService
+
+    var body: some View {
+        Menu {
+            if nowPlayingService.outputDevices.isEmpty {
+                Text("No output devices")
+            } else {
+                ForEach(nowPlayingService.outputDevices) { device in
+                    Button {
+                        nowPlayingService.setOutputDevice(device.id)
+                    } label: {
+                        Label(device.displayName, systemImage: device.isDefault ? "checkmark.circle.fill" : "speaker.wave.2")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "speaker.wave.2")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(selectedDeviceTitle)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .foregroundStyle(.white.opacity(0.78))
+            .padding(.horizontal, 9)
+            .frame(height: 22)
+            .background(.white.opacity(0.12), in: Capsule(style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private var selectedDeviceTitle: String {
+        nowPlayingService.outputDevices.first(where: \.isDefault)?.name ?? "Output"
+    }
+}
+
+private struct LyricsWindowAccessor: NSViewRepresentable {
+    let onResolve: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        DispatchQueue.main.async {
+            onResolve(view.window)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            onResolve(nsView.window)
+        }
+    }
+}
+
+private struct ScrollWheelActivityMonitor: NSViewRepresentable {
+    let onScroll: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onScroll: onScroll)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = PassthroughScrollMonitorView()
+        context.coordinator.view = view
+        context.coordinator.installMonitor()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onScroll = onScroll
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.removeMonitor()
+    }
+
+    final class Coordinator {
+        var onScroll: (CGFloat) -> Void
+        weak var view: NSView?
+        private var monitor: Any?
+
+        init(onScroll: @escaping (CGFloat) -> Void) {
+            self.onScroll = onScroll
+        }
+
+        func installMonitor() {
+            removeMonitor()
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, self.isEventInsideView(event) else {
+                    return event
+                }
+
+                self.onScroll(event.scrollingDeltaY)
+                return event
+            }
+        }
+
+        func removeMonitor() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
+
+        private func isEventInsideView(_ event: NSEvent) -> Bool {
+            guard let view, event.window === view.window else {
+                return false
+            }
+
+            let point = view.convert(event.locationInWindow, from: nil)
+            return view.bounds.contains(point)
+        }
+    }
+}
+
+private final class PassthroughScrollMonitorView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+}
+
 private struct ScrubProgressBar: View {
     let value: TimeInterval
     let duration: TimeInterval
     let isDisabled: Bool
+    let onScrubBegan: () -> Void
     let onScrubChanged: (TimeInterval) -> Void
     let onScrubEnded: (TimeInterval) -> Void
+    @State private var hasStartedDrag = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -404,29 +715,33 @@ private struct ScrubProgressBar: View {
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous)
                     .fill(.white.opacity(0.26))
-                    .frame(height: 10)
+                    .frame(height: 7)
 
                 Capsule(style: .continuous)
                     .fill(.white.opacity(0.9))
-                    .frame(width: geometry.size.width * progress, height: 10)
+                    .frame(width: geometry.size.width * progress, height: 7)
             }
+            .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { gesture in
-                        guard !isDisabled else {
+            .overlay(
+                ScrubGestureCaptureView(
+                    duration: duration,
+                    isDisabled: isDisabled,
+                    onScrubBegan: {
+                        guard !hasStartedDrag else {
                             return
                         }
 
-                        onScrubChanged(position(for: gesture.location.x, width: geometry.size.width))
+                        hasStartedDrag = true
+                        onScrubBegan()
+                    },
+                    onScrubChanged: onScrubChanged,
+                    onScrubEnded: { position in
+                        hasStartedDrag = false
+                        onScrubEnded(position)
                     }
-                    .onEnded { gesture in
-                        guard !isDisabled else {
-                            return
-                        }
-
-                        onScrubEnded(position(for: gesture.location.x, width: geometry.size.width))
-                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             )
             .opacity(isDisabled ? 0.42 : 1)
         }
@@ -439,6 +754,136 @@ private struct ScrubProgressBar: View {
 
         let progress = min(max(x / width, 0), 1)
         return duration * TimeInterval(progress)
+    }
+}
+
+private struct ScrubGestureCaptureView: NSViewRepresentable {
+    let duration: TimeInterval
+    let isDisabled: Bool
+    let onScrubBegan: () -> Void
+    let onScrubChanged: (TimeInterval) -> Void
+    let onScrubEnded: (TimeInterval) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            duration: duration,
+            isDisabled: isDisabled,
+            onScrubBegan: onScrubBegan,
+            onScrubChanged: onScrubChanged,
+            onScrubEnded: onScrubEnded
+        )
+    }
+
+    func makeNSView(context: Context) -> ScrubCaptureNSView {
+        let view = ScrubCaptureNSView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: ScrubCaptureNSView, context: Context) {
+        context.coordinator.duration = duration
+        context.coordinator.isDisabled = isDisabled
+        context.coordinator.onScrubBegan = onScrubBegan
+        context.coordinator.onScrubChanged = onScrubChanged
+        context.coordinator.onScrubEnded = onScrubEnded
+        nsView.coordinator = context.coordinator
+    }
+
+    final class Coordinator {
+        var duration: TimeInterval
+        var isDisabled: Bool
+        var onScrubBegan: () -> Void
+        var onScrubChanged: (TimeInterval) -> Void
+        var onScrubEnded: (TimeInterval) -> Void
+        var isDragging = false
+
+        init(
+            duration: TimeInterval,
+            isDisabled: Bool,
+            onScrubBegan: @escaping () -> Void,
+            onScrubChanged: @escaping (TimeInterval) -> Void,
+            onScrubEnded: @escaping (TimeInterval) -> Void
+        ) {
+            self.duration = duration
+            self.isDisabled = isDisabled
+            self.onScrubBegan = onScrubBegan
+            self.onScrubChanged = onScrubChanged
+            self.onScrubEnded = onScrubEnded
+        }
+
+        func beginScrub(at point: NSPoint, in bounds: NSRect) {
+            guard !isDisabled, duration > 0 else {
+                return
+            }
+
+            isDragging = true
+            onScrubBegan()
+            onScrubChanged(position(for: point.x, width: bounds.width))
+        }
+
+        func updateScrub(at point: NSPoint, in bounds: NSRect) {
+            guard isDragging, !isDisabled, duration > 0 else {
+                return
+            }
+
+            onScrubChanged(position(for: point.x, width: bounds.width))
+        }
+
+        func finishScrub(at point: NSPoint, in bounds: NSRect) {
+            guard isDragging else {
+                return
+            }
+
+            isDragging = false
+            guard !isDisabled, duration > 0 else {
+                return
+            }
+
+            onScrubEnded(position(for: point.x, width: bounds.width))
+        }
+
+        private func position(for x: CGFloat, width: CGFloat) -> TimeInterval {
+            guard width > 0 else {
+                return 0
+            }
+
+            let progress = min(max(x / width, 0), 1)
+            return duration * TimeInterval(progress)
+        }
+    }
+}
+
+private final class ScrubCaptureNSView: NSView {
+    weak var coordinator: ScrubGestureCaptureView.Coordinator?
+
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.isMovableByWindowBackground = false
+        coordinator?.beginScrub(at: convert(event.locationInWindow, from: nil), in: bounds)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        window?.isMovableByWindowBackground = false
+        coordinator?.updateScrub(at: convert(event.locationInWindow, from: nil), in: bounds)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        coordinator?.finishScrub(at: convert(event.locationInWindow, from: nil), in: bounds)
     }
 }
 
@@ -487,22 +932,38 @@ private struct AppleMusicLyricsLinesView: View {
     let fallbackArtist: String
     let onInteraction: () -> Void
     @EnvironmentObject private var settings: AppSettings
+    @State private var manualScrollUntil = Date.distantPast
+    @State private var manualScrollOffset: CGFloat = 0
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
-            let currentIndex = activeLineIndex(at: currentPosition(now: timeline.date))
+        GeometryReader { geometry in
+            let metrics = layoutMetrics(for: geometry.size)
+            let textWidth = max(120, geometry.size.width - metrics.horizontalInset * 2)
+            let viewportHeight = geometry.size.height
+            let initialPosition = currentPosition(now: Date())
+            let activeIndex = activeLineIndex(at: initialPosition)
+            let contentHeight = contentHeight(currentIndex: activeIndex, textWidth: textWidth, metrics: metrics)
+            let maxOffset = max((contentHeight - viewportHeight) / 2, 0)
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .center, spacing: (large ? 18 : 12) * settings.lyricsLineSpacing) {
+            TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
+                let currentIndex = activeLineIndex(at: currentPosition(now: timeline.date))
+                let followsPlayback = Date() >= manualScrollUntil
+                let automaticOffset = offset(for: currentIndex, viewportHeight: viewportHeight, contentHeight: contentHeight, textWidth: textWidth, metrics: metrics)
+                let displayedOffset = followsPlayback ? automaticOffset : min(max(manualScrollOffset, -maxOffset), maxOffset)
+
+                ZStack {
+                    VStack(alignment: .center, spacing: metrics.rowSpacing) {
                         ForEach(lines) { line in
                             Text(line.text)
-                                .font(.system(size: fontSize(for: line.id, currentIndex: currentIndex), weight: fontWeight(for: line.id, currentIndex: currentIndex), design: .rounded))
+                                .font(.system(size: fontSize(for: line.id, currentIndex: currentIndex, metrics: metrics), weight: fontWeight(for: line.id, currentIndex: currentIndex), design: .rounded))
                                 .foregroundStyle(color(for: line.id, currentIndex: currentIndex))
                                 .multilineTextAlignment(.center)
-                                .lineLimit(nil)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .scaleEffect(line.id == currentIndex ? 1 : 0.96)
+                                .lineSpacing(metrics.internalLineSpacing)
+                                .lineLimit(lineLimit(for: line.id, currentIndex: currentIndex, metrics: metrics))
+                                .minimumScaleFactor(0.82)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(width: textWidth, height: estimatedLineHeight(for: line, currentIndex: currentIndex, textWidth: textWidth, metrics: metrics), alignment: .center)
+                                .scaleEffect(line.id == currentIndex ? metrics.currentScale : 0.98)
                                 .contentShape(Rectangle())
                                 .modifier(LyricSeekModifier(
                                     line: line,
@@ -511,33 +972,119 @@ private struct AppleMusicLyricsLinesView: View {
                                     onInteraction: onInteraction
                                 ))
                                 .animation(.easeInOut(duration: 0.18), value: currentIndex)
-                                .id(line.id)
                         }
                     }
-                    .padding(.vertical, large ? 120 : 72)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, metrics.verticalPadding)
+                    .offset(y: displayedOffset)
+                    .animation(followsPlayback ? .easeInOut(duration: 0.22) : nil, value: displayedOffset)
                 }
-                .scrollIndicators(.hidden)
-                .scrollDisabled(true)
-                .onChange(of: currentIndex) { index in
-                    guard let index else {
-                        return
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
+                .background(
+                    ScrollWheelActivityMonitor { delta in
+                        manualScrollUntil = Date().addingTimeInterval(4.0)
+                        manualScrollOffset = min(max(displayedOffset + delta, -maxOffset), maxOffset)
+                        onInteraction()
                     }
-
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        proxy.scrollTo(index, anchor: .center)
+                )
+                .onChange(of: currentIndex) { _ in
+                    if followsPlayback {
+                        manualScrollOffset = automaticOffset
                     }
                 }
             }
         }
     }
 
-    private func fontSize(for id: Int, currentIndex: Int?) -> CGFloat {
-        guard isSynced, let currentIndex else {
-            return (large ? 22 : 17) * settings.lyricsFontScale
+    private func layoutMetrics(for size: CGSize) -> LyricsLayoutMetrics {
+        let widthFactor = min(max((size.width - 220) / 240, 0), 1)
+        let heightFactor = min(max((size.height - 260) / 300, 0), 1)
+        let comfort = min(widthFactor, heightFactor)
+        let userFontScale = CGFloat(settings.lyricsFontScale)
+        let userLineSpacing = CGFloat(settings.lyricsLineSpacing)
+        let compactScale = 0.76 + comfort * 0.24
+
+        return LyricsLayoutMetrics(
+            currentFontSize: (large ? 21 + comfort * 3 : 18 + comfort * 2) * userFontScale * compactScale,
+            secondaryFontSize: (large ? 15 + comfort * 3 : 13 + comfort * 2) * userFontScale * compactScale,
+            rowSpacing: (large ? 3 + comfort * 5 : 2 + comfort * 4) * userLineSpacing,
+            internalLineSpacing: large ? 0.5 + comfort : 0.25 + comfort * 0.75,
+            verticalPadding: large ? 34 + comfort * 50 : 24 + comfort * 34,
+            horizontalInset: large ? 18 + comfort * 9 : 14 + comfort * 6,
+            minimumRowHeight: (large ? 21 + comfort * 7 : 18 + comfort * 5) * userFontScale,
+            currentScale: 1 + comfort * 0.025,
+            prefersTightCurrentLine: comfort < 0.28
+        )
+    }
+
+    private func estimatedLineHeight(for line: LyricLine, currentIndex: Int?, textWidth: CGFloat, metrics: LyricsLayoutMetrics) -> CGFloat {
+        let size = fontSize(for: line.id, currentIndex: currentIndex, metrics: metrics)
+        let maxLines = lineLimit(for: line.id, currentIndex: currentIndex, metrics: metrics)
+        let lineCount = estimatedWrappedLineCount(for: line.text, fontSize: size, textWidth: textWidth, maxLines: maxLines)
+        let textHeight = CGFloat(lineCount) * size * (large ? 1.04 : 1.02)
+        let verticalBreathingRoom = line.id == currentIndex ? size * 0.12 : size * 0.07
+        return max(metrics.minimumRowHeight, textHeight + verticalBreathingRoom)
+    }
+
+    private func estimatedWrappedLineCount(for text: String, fontSize: CGFloat, textWidth: CGFloat, maxLines: Int) -> Int {
+        guard textWidth > 0, !text.isEmpty else {
+            return 1
         }
 
-        let baseSize: CGFloat = id == currentIndex ? (large ? 30 : 22) : (large ? 22 : 16)
-        return baseSize * settings.lyricsFontScale
+        let averageCharacterWidth = fontSize * (text.contains(where: { $0.isASCII }) ? 0.54 : 0.92)
+        let estimatedWidth = CGFloat(text.count) * averageCharacterWidth
+        return min(max(Int(ceil(estimatedWidth / textWidth)), 1), maxLines)
+    }
+
+    private func contentHeight(currentIndex: Int?, textWidth: CGFloat, metrics: LyricsLayoutMetrics) -> CGFloat {
+        guard !lines.isEmpty else {
+            return 0
+        }
+
+        let lineHeights = lines.map { estimatedLineHeight(for: $0, currentIndex: currentIndex, textWidth: textWidth, metrics: metrics) }
+        let spacingTotal = CGFloat(max(lines.count - 1, 0)) * metrics.rowSpacing
+        return metrics.verticalPadding * 2 + lineHeights.reduce(0, +) + spacingTotal
+    }
+
+    private func offset(for currentIndex: Int?, viewportHeight: CGFloat, contentHeight: CGFloat, textWidth: CGFloat, metrics: LyricsLayoutMetrics) -> CGFloat {
+        guard let currentIndex else {
+            return 0
+        }
+
+        let rowCenter = centerY(for: currentIndex, textWidth: textWidth, metrics: metrics)
+        let centeredOffset = contentHeight / 2 - rowCenter
+        let maxOffset = max((contentHeight - viewportHeight) / 2, 0)
+        return min(max(centeredOffset, -maxOffset), maxOffset)
+    }
+
+    private func centerY(for id: Int, textWidth: CGFloat, metrics: LyricsLayoutMetrics) -> CGFloat {
+        var y = metrics.verticalPadding
+        for line in lines {
+            let height = estimatedLineHeight(for: line, currentIndex: id, textWidth: textWidth, metrics: metrics)
+            if line.id == id {
+                return y + height / 2
+            }
+            y += height + metrics.rowSpacing
+        }
+
+        return y
+    }
+
+    private func fontSize(for id: Int, currentIndex: Int?, metrics: LyricsLayoutMetrics) -> CGFloat {
+        guard isSynced, let currentIndex else {
+            return metrics.secondaryFontSize
+        }
+
+        return id == currentIndex ? metrics.currentFontSize : metrics.secondaryFontSize
+    }
+
+    private func lineLimit(for id: Int, currentIndex: Int?, metrics: LyricsLayoutMetrics) -> Int {
+        guard id == currentIndex else {
+            return metrics.prefersTightCurrentLine ? 1 : 2
+        }
+
+        return metrics.prefersTightCurrentLine ? 2 : 3
     }
 
     private func fontWeight(for id: Int, currentIndex: Int?) -> Font.Weight {
@@ -549,18 +1096,30 @@ private struct AppleMusicLyricsLinesView: View {
     }
 
     private func color(for id: Int, currentIndex: Int?) -> Color {
+        let baseColor = lyricColor
         guard isSynced, let currentIndex else {
-            return .white.opacity(0.9)
+            return baseColor.opacity(0.9)
         }
 
         let distance = abs(id - currentIndex)
         if distance == 0 {
-            return .white
+            return baseColor
         }
         if distance == 1 {
-            return .white.opacity(0.45)
+            return baseColor.opacity(0.45)
         }
-        return .white.opacity(0.22)
+        return baseColor.opacity(0.22)
+    }
+
+    private var lyricColor: Color {
+        switch settings.lyricsTextColorMode {
+        case .white:
+            return .white
+        case .black:
+            return .black
+        case .custom:
+            return Color(hex: settings.lyricsCustomTextColorHex)
+        }
     }
 
     private func currentPosition(now: Date) -> TimeInterval? {
@@ -584,6 +1143,18 @@ private struct AppleMusicLyricsLinesView: View {
     }
 }
 
+private struct LyricsLayoutMetrics {
+    let currentFontSize: CGFloat
+    let secondaryFontSize: CGFloat
+    let rowSpacing: CGFloat
+    let internalLineSpacing: CGFloat
+    let verticalPadding: CGFloat
+    let horizontalInset: CGFloat
+    let minimumRowHeight: CGFloat
+    let currentScale: CGFloat
+    let prefersTightCurrentLine: Bool
+}
+
 private struct LyricSeekModifier: ViewModifier {
     let line: LyricLine
     let isSynced: Bool
@@ -602,6 +1173,5 @@ private struct LyricSeekModifier: ViewModifier {
                 onInteraction()
                 nowPlayingService.seek(to: time)
             }
-            .help(line.time == nil ? "" : "Jump to this lyric")
     }
 }

@@ -22,5 +22,11 @@
     <true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>MusicBar reads the current track and artwork from music apps to show it in the menu bar.</string>
+    <key>SUFeedURL</key>
+    <string>https://aronahhhh.github.io/MusicBar/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>Ffu7TIKl73uub1nISZxvNIkFWgGMAKIEsbsV8njHKuw=</string>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
 </dict>
 </plist>

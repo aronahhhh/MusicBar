@@ -10,12 +10,14 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private let lyricsService = LyricsService()
     private let settings = AppSettings()
     private let license = AppLicense()
+    private let updateService = AppUpdateService()
     private var menuBarIslandView: NSHostingView<MenuBarIslandView>?
     private var settingsWindow: NSWindow?
     private var lyricsWindow: NSWindow?
     private var purchaseWindow: NSWindow?
     private var controlPopoverCloseWorkItem: DispatchWorkItem?
     private var hoverTrackingTimer: Timer?
+    private var statusButtonEventMonitor: Any?
     private var popoverLocalEventMonitor: Any?
     private var popoverGlobalEventMonitor: Any?
     private var isAutoLyricsWindowVisible = false
@@ -28,10 +30,12 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         configurePopover()
         configureControlPopover()
         bind()
+        updateService.setAutomaticallyChecksForUpdates(settings.autoCheckForUpdates)
     }
 
     deinit {
         hoverTrackingTimer?.invalidate()
+        stopStatusButtonEventMonitoring()
         stopMainPopoverEventMonitoring()
     }
 
@@ -45,7 +49,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         button.title = ""
         button.target = self
         button.action = #selector(togglePopover)
-        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        button.sendAction(on: [.leftMouseDown, .rightMouseDown])
 
         let hostingView = HoverTrackingHostingView(
             rootView: MenuBarIslandView(service: nowPlayingService, settings: settings),
@@ -64,6 +68,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         ])
 
         menuBarIslandView = hostingView
+        startStatusButtonEventMonitoring()
         startHoverTrackingTimer()
     }
 
@@ -128,17 +133,51 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     @objc private func togglePopover() {
+        toggleActionPopover()
+    }
+
+    private func toggleActionPopover() {
         guard let button = statusItem.button else {
             return
         }
 
+        closeControlPopoverImmediately()
         if popover.isShown {
             closeMainPopover()
         } else {
-            closeControlPopoverImmediately()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             startMainPopoverEventMonitoring()
         }
+    }
+
+    private func startStatusButtonEventMonitoring() {
+        stopStatusButtonEventMonitoring()
+        statusButtonEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            guard let self,
+                  self.isEventInsideStatusButton(event) else {
+                return event
+            }
+
+            self.toggleActionPopover()
+            return nil
+        }
+    }
+
+    private func stopStatusButtonEventMonitoring() {
+        if let statusButtonEventMonitor {
+            NSEvent.removeMonitor(statusButtonEventMonitor)
+            self.statusButtonEventMonitor = nil
+        }
+    }
+
+    private func isEventInsideStatusButton(_ event: NSEvent) -> Bool {
+        guard let button = statusItem.button,
+              event.window === button.window else {
+            return false
+        }
+
+        let point = button.convert(event.locationInWindow, from: nil)
+        return button.bounds.contains(point)
     }
 
     private func closeMainPopover() {
@@ -241,7 +280,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         hoverTrackingTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
             self?.updateHoverControlVisibility()
         }
-        hoverTrackingTimer?.tolerance = 0.04
+        hoverTrackingTimer?.tolerance = 0.02
     }
 
     private func updateHoverControlVisibility() {
@@ -278,19 +317,19 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             return false
         }
 
-        return buttonFrame.insetBy(dx: -1, dy: 0).contains(mouseLocation)
+        return buttonFrame.contains(mouseLocation)
     }
 
     private func isMouseInsideHoverControlArea() -> Bool {
         let mouseLocation = NSEvent.mouseLocation
 
         if let buttonFrame = statusButtonScreenFrame(),
-           buttonFrame.insetBy(dx: -4, dy: -2).contains(mouseLocation) {
+           buttonFrame.insetBy(dx: -2, dy: -1).contains(mouseLocation) {
             return true
         }
 
         if let popoverFrame = controlPopover.contentViewController?.view.window?.frame,
-           popoverFrame.insetBy(dx: -10, dy: -10).contains(mouseLocation) {
+           popoverFrame.insetBy(dx: -6, dy: -8).contains(mouseLocation) {
             return true
         }
 
@@ -340,15 +379,17 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.minSize = NSSize(width: 220, height: 180)
+        window.minSize = NSSize(width: 260, height: 220)
         if !window.setFrameUsingName("MusicBarLyricsWindow") {
             window.center()
         }
         window.setFrameAutosaveName("MusicBarLyricsWindow")
-        window.title = "Lyrics"
+        window.title = ""
+        window.titleVisibility = .hidden
         window.delegate = self
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        window.hasShadow = true
         window.backgroundColor = .clear
         window.isOpaque = false
         window.alphaValue = 1
@@ -442,14 +483,16 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.center()
+        window.setContentSize(NSSize(width: 560, height: 460))
         window.title = "MusicBar Settings"
         window.contentViewController = NSHostingController(
             rootView: SettingsView(
                 settings: settings,
                 license: license,
+                updateService: updateService,
                 onPurchase: { [weak self] in self?.openPurchasePage() },
                 onGitHub: { [weak self] in self?.openGitHub() },
-                onUpdate: { [weak self] in self?.openUpdatePage() }
+                onUpdate: { [weak self] in self?.checkForUpdates() }
             )
         )
         window.isReleasedWhenClosed = false
@@ -458,9 +501,9 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func openUpdatePage() {
+    private func checkForUpdates() {
         closeMainPopover()
-        NSWorkspace.shared.open(settings.releasesURL)
+        updateService.checkForUpdates()
     }
 
     private func openGitHub() {

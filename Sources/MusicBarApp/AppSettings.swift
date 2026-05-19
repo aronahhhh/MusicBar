@@ -50,6 +50,24 @@ enum LyricsTheme: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum LyricsTextColorMode: String, CaseIterable, Identifiable {
+    case white
+    case black
+    case custom
+
+    var id: String { rawValue }
+}
+
+enum LyricsBackgroundMode: String, CaseIterable, Identifiable {
+    case midnight
+    case graphite
+    case ivory
+    case custom
+    case image
+
+    var id: String { rawValue }
+}
+
 final class AppSettings: ObservableObject {
     @Published var appLanguage: AppLanguage {
         didSet {
@@ -107,6 +125,46 @@ final class AppSettings: ObservableObject {
             UserDefaults.standard.set(lyricsLineSpacing, forKey: lyricsLineSpacingKey)
         }
     }
+    @Published var autoCheckForUpdates: Bool {
+        didSet {
+            UserDefaults.standard.set(autoCheckForUpdates, forKey: autoCheckForUpdatesKey)
+        }
+    }
+    @Published var lyricsTextColorMode: LyricsTextColorMode {
+        didSet {
+            UserDefaults.standard.set(lyricsTextColorMode.rawValue, forKey: lyricsTextColorModeKey)
+        }
+    }
+    @Published var lyricsCustomTextColorHex: String {
+        didSet {
+            UserDefaults.standard.set(lyricsCustomTextColorHex, forKey: lyricsCustomTextColorHexKey)
+        }
+    }
+    @Published var lyricsBackgroundMode: LyricsBackgroundMode {
+        didSet {
+            UserDefaults.standard.set(lyricsBackgroundMode.rawValue, forKey: lyricsBackgroundModeKey)
+        }
+    }
+    @Published var lyricsCustomBackgroundColorHex: String {
+        didSet {
+            UserDefaults.standard.set(lyricsCustomBackgroundColorHex, forKey: lyricsCustomBackgroundColorHexKey)
+        }
+    }
+    @Published var lyricsBackgroundImagePath: String {
+        didSet {
+            UserDefaults.standard.set(lyricsBackgroundImagePath, forKey: lyricsBackgroundImagePathKey)
+        }
+    }
+    @Published var lyricsBackgroundDim: Double {
+        didSet {
+            UserDefaults.standard.set(lyricsBackgroundDim, forKey: lyricsBackgroundDimKey)
+        }
+    }
+    @Published var lyricsBackgroundBlur: Double {
+        didSet {
+            UserDefaults.standard.set(lyricsBackgroundBlur, forKey: lyricsBackgroundBlurKey)
+        }
+    }
 
     private let appLanguageKey = "appLanguage"
     private let showNowPlayingInMenuBarKey = "showNowPlayingInMenuBar"
@@ -119,6 +177,14 @@ final class AppSettings: ObservableObject {
     private let lyricsThemeKey = "lyricsTheme"
     private let lyricsFontScaleKey = "lyricsFontScale"
     private let lyricsLineSpacingKey = "lyricsLineSpacing"
+    private let autoCheckForUpdatesKey = "autoCheckForUpdates"
+    private let lyricsTextColorModeKey = "lyricsTextColorMode"
+    private let lyricsCustomTextColorHexKey = "lyricsCustomTextColorHex"
+    private let lyricsBackgroundModeKey = "lyricsBackgroundMode"
+    private let lyricsCustomBackgroundColorHexKey = "lyricsCustomBackgroundColorHex"
+    private let lyricsBackgroundImagePathKey = "lyricsBackgroundImagePath"
+    private let lyricsBackgroundDimKey = "lyricsBackgroundDim"
+    private let lyricsBackgroundBlurKey = "lyricsBackgroundBlur"
 
     init() {
         let savedLanguage = UserDefaults.standard.string(forKey: appLanguageKey)
@@ -145,6 +211,22 @@ final class AppSettings: ObservableObject {
         lyricsFontScale = savedFontScale == 0 ? 1.0 : min(max(savedFontScale, 0.82), 1.28)
         let savedLineSpacing = UserDefaults.standard.double(forKey: lyricsLineSpacingKey)
         lyricsLineSpacing = savedLineSpacing == 0 ? 1.0 : min(max(savedLineSpacing, 0.75), 1.35)
+        if UserDefaults.standard.object(forKey: autoCheckForUpdatesKey) == nil {
+            autoCheckForUpdates = true
+        } else {
+            autoCheckForUpdates = UserDefaults.standard.bool(forKey: autoCheckForUpdatesKey)
+        }
+        let savedTextColorMode = UserDefaults.standard.string(forKey: lyricsTextColorModeKey)
+        lyricsTextColorMode = savedTextColorMode.flatMap(LyricsTextColorMode.init(rawValue:)) ?? .white
+        lyricsCustomTextColorHex = UserDefaults.standard.string(forKey: lyricsCustomTextColorHexKey) ?? "#FFFFFF"
+        let savedBackgroundMode = UserDefaults.standard.string(forKey: lyricsBackgroundModeKey)
+        lyricsBackgroundMode = savedBackgroundMode.flatMap(LyricsBackgroundMode.init(rawValue:)) ?? .midnight
+        lyricsCustomBackgroundColorHex = UserDefaults.standard.string(forKey: lyricsCustomBackgroundColorHexKey) ?? "#111318"
+        lyricsBackgroundImagePath = UserDefaults.standard.string(forKey: lyricsBackgroundImagePathKey) ?? ""
+        let savedBackgroundDim = UserDefaults.standard.double(forKey: lyricsBackgroundDimKey)
+        lyricsBackgroundDim = savedBackgroundDim == 0 ? 0.45 : min(max(savedBackgroundDim, 0.0), 0.86)
+        let savedBackgroundBlur = UserDefaults.standard.double(forKey: lyricsBackgroundBlurKey)
+        lyricsBackgroundBlur = min(max(savedBackgroundBlur, 0.0), 18.0)
     }
 
     var githubURL: URL {

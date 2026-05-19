@@ -3,6 +3,7 @@ import Foundation
 protocol MusicProvider {
     var sourceName: String { get }
     func currentTrack() -> TrackInfo?
+    func playbackState() -> PlaybackControlState
     func togglePlayPause()
     func nextTrack()
     func previousTrack()
@@ -86,6 +87,36 @@ struct AppleMusicProvider: MusicProvider {
         return parseTrackResponse(response, source: sourceName, artworkPath: artworkPath)
     }
 
+    func playbackState() -> PlaybackControlState {
+        let script = """
+        if application "Music" is running then
+            tell application "Music"
+                set shuffleState to false
+                set repeatState to false
+                set volumeState to sound volume as integer
+                try
+                    set shuffleState to shuffle enabled as boolean
+                end try
+                try
+                    set repeatState to (song repeat is not off)
+                end try
+                return (shuffleState as text) & tab & (repeatState as text) & tab & (volumeState as text)
+            end tell
+        end if
+        return ""
+        """
+
+        guard let response = runner.run(script), !response.isEmpty else {
+            return PlaybackControlState()
+        }
+
+        let parts = response.components(separatedBy: "\t")
+        return PlaybackControlState(
+            isShuffleEnabled: parts.first?.lowercased() == "true",
+            isRepeatEnabled: parts.dropFirst().first?.lowercased() == "true"
+        )
+    }
+
     func togglePlayPause() {
         _ = runner.run("""
         if application "Music" is running then
@@ -141,4 +172,5 @@ struct AppleMusicProvider: MusicProvider {
         end if
         """)
     }
+
 }

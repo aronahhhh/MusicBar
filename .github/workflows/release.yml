@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Info.plist)"
+          SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist)"
+          if [[ "$VERSION" != "$SHORT_VERSION" ]]; then
+            echo "Tag version v$VERSION does not match Info.plist CFBundleShortVersionString $SHORT_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Sparkle public key
+        run: |
+          PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Info.plist)"
+          if [[ -z "$PUBLIC_KEY" || "$PUBLIC_KEY" == "REPLACE_WITH_SPARKLE_EDDSA_PUBLIC_KEY" ]]; then
+            echo "Info.plist SUPublicEDKey is not configured." >&2
+            exit 1
+          fi
+
+      - name: Build app bundle with Sparkle
+        run: REQUIRE_SPARKLE=1 scripts/build_app.sh
+
+      - name: Verify app bundle
+        run: |
+          test -d dist/MusicBar.app/Contents/Frameworks/Sparkle.framework
+          codesign --verify --verbose dist/MusicBar.app
+          plutil -lint dist/MusicBar.app/Contents/Info.plist
+
+      - name: Create DMG
+        id: dmg
+        run: |
+          DMG_PATH="$(scripts/create_dmg.sh '${{ steps.version.outputs.version }}')"
+          DMG_LENGTH="$(stat -f%z "$DMG_PATH")"
+          echo "path=$DMG_PATH" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$DMG_PATH")" >> "$GITHUB_OUTPUT"
+          echo "length=$DMG_LENGTH" >> "$GITHUB_OUTPUT"
+
+      - name: Locate Sparkle signing tool
+        id: sparkle
+        run: |
+          SIGN_UPDATE="$(find .build -path '*/sign_update' -type f -perm -111 | head -n 1)"
+          if [[ -z "$SIGN_UPDATE" ]]; then
+            echo "Sparkle sign_update tool was not found in .build." >&2
+            exit 1
+          fi
+          echo "sign_update=$SIGN_UPDATE" >> "$GITHUB_OUTPUT"
+
+      - name: Sign DMG for Sparkle
+        id: signature
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [[ -z "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+            echo "Missing SPARKLE_PRIVATE_KEY repository secret." >&2
+            exit 1
+          fi
+          SIGN_OUTPUT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "${{ steps.sparkle.outputs.sign_update }}" --ed-key-file - "${{ steps.dmg.outputs.path }}")"
+          echo "$SIGN_OUTPUT"
+          ED_SIGNATURE="$(printf '%s\n' "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' | tail -n 1)"
+          if [[ -z "$ED_SIGNATURE" ]]; then
+            echo "Could not parse Sparkle EdDSA signature from sign_update output." >&2
+            exit 1
+          fi
+          echo "ed_signature=$ED_SIGNATURE" >> "$GITHUB_OUTPUT"
+
+      - name: Update appcast
+        run: |
+          DMG_URL="https://github.com/aronahhhh/MusicBar/releases/download/v${{ steps.version.outputs.version }}/${{ steps.dmg.outputs.name }}"
+          scripts/update_appcast.sh \
+            "${{ steps.version.outputs.version }}" \
+            "${{ steps.version.outputs.build }}" \
+            "$DMG_URL" \
+            "${{ steps.dmg.outputs.length }}" \
+            "${{ steps.signature.outputs.ed_signature }}"
+          ruby -r rexml/document -e 'REXML::Document.new(File.read(ARGV.fetch(0)))' docs/appcast.xml
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.dmg.outputs.path }}
+          name: MusicBar v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+
+      - name: Commit appcast
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml
+          if git diff --cached --quiet; then
+            echo "No appcast changes to commit."
+          else
+            git commit -m "Update appcast for v${{ steps.version.outputs.version }}"
+            git push origin HEAD:main
+          fi

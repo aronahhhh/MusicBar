@@ -13,15 +13,16 @@ MusicBar includes a 7-day free trial. After the trial, unlock the full version f
 ## Features
 
 - Transparent menu bar status item with cover art, song name, and artist.
-- Compact click menu with Lyrics, Settings, Update, GitHub, and Quit actions.
+- Compact click menu with Settings and Quit actions.
 - Hover playback controls from the menu bar.
 - Resizable Apple Music style lyrics window with synced lyric highlighting.
-- Playback controls for progress, play/pause, previous, next, shuffle, repeat, and lyric-line seeking.
+- Playback controls for progress, play/pause, previous, next, shuffle, repeat, Mac output volume, output device selection, and lyric-line seeking.
 - Auto lyrics window that appears while music is playing and hides when playback pauses.
-- Lyrics window pinning, opacity control, and launch at login.
+- Lyrics window pinning, opacity control, custom lyric colors, custom background colors, and imported background images.
 - Settings window with General, Lyrics, and About sections.
 - Language selection for Simplified Chinese, Traditional Chinese, English, or the system language.
 - Region-aware trial pricing: RMB 3.99 in mainland China, $1.99 elsewhere.
+- Sparkle update integration with a GitHub Pages appcast template.
 - Apple Music support.
 - Lyrics matching through LRCLIB with NetEase fallback for more Chinese tracks.
 - Responsive polling for low-latency menu bar and lyric updates.
@@ -29,7 +30,7 @@ MusicBar includes a 7-day free trial. After the trial, unlock the full version f
 
 ## Download
 
-Download the latest trial build from GitHub Releases once a release is published.
+Download the latest trial DMG from GitHub Releases once a release is published.
 
 If you are building locally:
 
@@ -46,8 +47,8 @@ open dist/MusicBar.app
 
 ## Install
 
-1. Download `MusicBar.app` from the latest release.
-2. Move it to `/Applications`.
+1. Download `MusicBar-vX.Y.Z.dmg` from the latest release.
+2. Open the DMG and move `MusicBar.app` to `/Applications`.
 3. Open it once from Finder.
 4. When macOS asks, allow MusicBar to control Music.
 5. If macOS blocks the unsigned trial build, open System Settings > Privacy & Security and approve it.
@@ -86,26 +87,41 @@ Add a new `MusicProvider` implementation in `Sources/MusicBarApp/MusicProvider.s
 
 ## Publishing to GitHub
 
-Before publishing:
+Automatic updates use Sparkle 2 with GitHub Releases for DMG downloads and GitHub Pages for `docs/appcast.xml`.
 
-- Replace the screenshot with a newer demo image or short GIF when available.
-- Update the GitHub Homepage field from the menu bar Settings action.
-- Create a GitHub Release with the built `MusicBar.app` zipped.
-- Keep release notes clear: added, fixed, known limitations.
+One-time setup:
 
-The Update action opens the releases page for the configured GitHub repository URL.
+1. Generate a Sparkle EdDSA key pair with Sparkle's `generate_keys` tool.
+2. Put the public key in `Info.plist` as `SUPublicEDKey`.
+3. Add the private key as the GitHub repository secret `SPARKLE_PRIVATE_KEY`.
+4. Enable GitHub Pages from the `main` branch `/docs` folder.
+
+Release flow:
+
+1. Update `CFBundleShortVersionString` and `CFBundleVersion` in `Info.plist`.
+2. Commit the version bump.
+3. Create and push a matching tag, for example `v0.2.1`.
+4. GitHub Actions builds `MusicBar.app` with Sparkle, creates `MusicBar-vX.Y.Z.dmg`, signs it for Sparkle, creates the GitHub Release, and commits the updated `docs/appcast.xml`.
+
+Local release checks:
+
+```bash
+REQUIRE_SPARKLE=1 scripts/build_app.sh
+scripts/create_dmg.sh 0.2.1
+scripts/update_appcast.sh 0.2.1 6 "https://github.com/aronahhhh/MusicBar/releases/download/v0.2.1/MusicBar-v0.2.1.dmg" 123456 "SIGNATURE"
+```
 
 ## Known limitations
 
 - Lyrics availability depends on third-party matching sources.
 - The trial currently focuses on Apple Music.
-- Trial builds are ad-hoc signed, not notarized.
+- Trial builds are ad-hoc signed, not notarized, so macOS may show a first-launch security warning.
 
 ## Roadmap
 
 - Better player support for more macOS music apps.
 - Signed and notarized public builds.
-- Automatic update support.
+- Signed and notarized public builds.
 - Optional local `.lrc` lyric import.
 - More menu bar display styles.
 - Website or reseller-backed license activation.
