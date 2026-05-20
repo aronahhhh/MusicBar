@@ -76,9 +76,16 @@ jobs:
           fi
           KEY_FILE="$(mktemp)"
           trap 'rm -f "$KEY_FILE"' EXIT
-          printf '%s\n' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          set +e
           SIGN_OUTPUT="$("${{ steps.sparkle.outputs.sign_update }}" --ed-key-file "$KEY_FILE" "${{ steps.dmg.outputs.path }}" 2>&1)"
+          SIGN_STATUS="$?"
+          set -e
           echo "$SIGN_OUTPUT"
+          if [[ "$SIGN_STATUS" != "0" ]]; then
+            echo "Sparkle sign_update failed with exit code $SIGN_STATUS." >&2
+            exit "$SIGN_STATUS"
+          fi
           ED_SIGNATURE="$(printf '%s\n' "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' | tail -n 1)"
           if [[ -z "$ED_SIGNATURE" ]]; then
             echo "Could not parse Sparkle EdDSA signature from sign_update output." >&2
