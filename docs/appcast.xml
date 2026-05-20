@@ -1,20 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+<?xml version='1.0' encoding='UTF-8'?>
+<rss version='2.0' xmlns:sparkle='http://www.andymatuschak.org/xml-namespaces/sparkle'>
   <channel>
     <title>MusicBar Updates</title>
     <link>https://aronahhhh.github.io/MusicBar/appcast.xml</link>
     <description>MusicBar release updates.</description>
     <item>
       <title>MusicBar 0.2.0</title>
-      <pubDate>Thu, 14 May 2026 00:00:00 +0800</pubDate>
+      <pubDate>Wed, 20 May 2026 13:17:24 +0000</pubDate>
       <sparkle:version>5</sparkle:version>
       <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <enclosure
-        url="https://github.com/aronahhhh/MusicBar/releases/download/v0.2.0/MusicBar-v0.2.0.dmg"
-        sparkle:edSignature="REPLACE_WITH_SPARKLE_PACKAGE_SIGNATURE"
-        length="0"
-        type="application/octet-stream"/>
+      <enclosure url='https://github.com/aronahhhh/MusicBar/releases/download/v0.2.0/MusicBar-v0.2.0.dmg' sparkle:edSignature='HtteAeGhHQ9l/BMQ9CyKVxrluLYBj4/nmCc3umHnUtjfvD3McBejG2HRrcCxx1gPzm1ew6+yv/MFhHByaKUDBQ==' length='1827945' type='application/octet-stream'/>
     </item>
   </channel>
 </rss>
