@@ -74,7 +74,10 @@ jobs:
             echo "Missing SPARKLE_PRIVATE_KEY repository secret." >&2
             exit 1
           fi
-          SIGN_OUTPUT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "${{ steps.sparkle.outputs.sign_update }}" --ed-key-file - "${{ steps.dmg.outputs.path }}")"
+          KEY_FILE="$(mktemp)"
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s\n' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          SIGN_OUTPUT="$("${{ steps.sparkle.outputs.sign_update }}" --ed-key-file "$KEY_FILE" "${{ steps.dmg.outputs.path }}" 2>&1)"
           echo "$SIGN_OUTPUT"
           ED_SIGNATURE="$(printf '%s\n' "$SIGN_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' | tail -n 1)"
           if [[ -z "$ED_SIGNATURE" ]]; then
